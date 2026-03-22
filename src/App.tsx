@@ -18,6 +18,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
 
@@ -26,8 +27,12 @@ function App() {
   }, [entries]);
 
   useEffect(() => {
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const ua = navigator.userAgent;
+    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const android = /Android/.test(ua);
     setIsIOS(iOS);
+    setIsAndroid(android);
+    
     const standalone = (window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
     setIsStandalone(standalone);
 
@@ -226,9 +231,28 @@ function App() {
               <Plus className="w-5 h-5" />
             </div>
             <p className="text-xs font-sans leading-tight pr-4">
-              <strong>Installa il Diario:</strong> clicca sull'icona di condivisione <span className="inline-block border rounded px-1">↑</span> e poi su <strong>"Aggiungi alla schermata Home"</strong>.
+              <strong>Installa su iPhone:</strong> clicca su <span className="inline-block border rounded px-1">↑</span> e poi su <strong>"Aggiungi alla schermata Home"</strong>.
             </p>
             <button onClick={() => setIsIOS(false)} className="text-slate-300 ml-auto">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
+        {/* Android PWA Instructions */}
+        {isAndroid && !isStandalone && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161616] border border-slate-100 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+          >
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-2xl text-indigo-500">
+              <Plus className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-sans leading-tight pr-4">
+              <strong>Installa su Android:</strong> clicca sui tre puntini <span className="inline-block border rounded px-1">⋮</span> e seleziona <strong>"Installa app"</strong>.
+            </p>
+            <button onClick={() => setIsAndroid(false)} className="text-slate-300 ml-auto">
               <X className="w-4 h-4" />
             </button>
           </motion.div>
