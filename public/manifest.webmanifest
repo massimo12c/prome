@@ -1,10 +1,10 @@
 {
-  "name": "Smart Vault - Archivio Intelligente",
-  "short_name": "SmartVault",
-  "description": "Un archivio personale per salvare note e idee organizzate con i tuoi tag",
+  "name": "Smart Knowledge - L'Enciclopedia dei Riassunti",
+  "short_name": "Knowledge",
+  "description": "Ottieni riassunti eleganti e veloci su qualsiasi argomento dal mondo",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f8fa",
+  "background_color": "#fafaf9",
   "theme_color": "#4f46e5",
   "icons": [
     {

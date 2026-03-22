@@ -1,34 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, X, Hash, Filter, Bookmark } from 'lucide-react';
+import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface VaultItem {
+interface Summary {
+  title: string;
+  extract: string;
+  thumbnail?: { source: string };
+  content_urls?: { desktop: { page: string } };
+}
+
+interface HistoryItem {
   id: string;
   title: string;
-  content: string;
-  tags: string[];
   timestamp: number;
 }
 
 function App() {
-  const [items, setItems] = useState<VaultItem[]>(() => {
-    const saved = localStorage.getItem('vault_items');
+  const [query, setQuery] = useState('');
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    const saved = localStorage.getItem('wiki_history');
     return saved ? JSON.parse(saved) : [];
   });
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [currentTags, setCurrentTags] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
   
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('vault_items', JSON.stringify(items));
-  }, [items]);
+    localStorage.setItem('wiki_history', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -36,248 +38,233 @@ function App() {
     setIsStandalone((window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
   }, []);
 
-  const addTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      e.preventDefault();
-      if (!currentTags.includes(tagInput.trim().toLowerCase())) {
-        setCurrentTags([...currentTags, tagInput.trim().toLowerCase()]);
+  const fetchSummary = async (searchTitle: string) => {
+    if (!searchTitle.trim()) return;
+    
+    setLoading(true);
+    setError('');
+    setSummary(null);
+
+    try {
+      const response = await fetch(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTitle)}`);
+      
+      if (!response.ok) {
+        throw new Error('Argomento non trovato. Prova con un termine più preciso.');
       }
-      setTagInput('');
+
+      const data = await response.json();
+      setSummary(data);
+
+      // Add to history
+      if (data.title) {
+        const newHistoryItem: HistoryItem = {
+          id: Date.now().toString(),
+          title: data.title,
+          timestamp: Date.now()
+        };
+        setHistory(prev => [newHistoryItem, ...prev.filter(h => h.title !== data.title)].slice(0, 10));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const removeCurrentTag = (tagToRemove: string) => {
-    setCurrentTags(currentTags.filter(t => t !== tagToRemove));
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchSummary(query);
   };
 
-  const addItem = () => {
-    if (!title.trim()) return;
-
-    const newItem: VaultItem = {
-      id: Date.now().toString(),
-      title: title.trim(),
-      content: content.trim(),
-      tags: currentTags,
-      timestamp: Date.now()
-    };
-
-    setItems([newItem, ...items]);
-    setTitle('');
-    setContent('');
-    setCurrentTags([]);
-    setIsAdding(false);
+  const clearAllHistory = () => {
+    setHistory([]);
   };
-
-  const deleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const allTags = [...new Set(items.flatMap(item => item.tags))].sort();
-
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         item.content.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTag = !selectedTag || item.tags.includes(selectedTag);
-    return matchesSearch && matchesTag;
-  });
 
   return (
-    <div className="min-h-screen bg-[#f6f8fa] dark:bg-[#0d1117] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-24">
+    <div className="min-h-screen bg-[#fafaf9] dark:bg-[#080808] text-slate-900 dark:text-slate-100 transition-colors duration-500 font-serif">
       
-      {/* Top Navigation & Filters */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#0d1117]/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
+      {/* Search Header */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#080808]/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-6">
+        <div className="max-w-2xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="bg-indigo-600 p-1.5 rounded-lg">
-                <Bookmark className="w-5 h-5 text-white fill-current" />
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-600 p-2 rounded-2xl shadow-lg shadow-indigo-500/20">
+                <Globe className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl font-black tracking-tight">Smart Vault</h1>
+              <h1 className="text-2xl font-black tracking-tighter font-sans uppercase">Smart Knowledge</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setIsAdding(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
-              >
-                <Plus className="w-5 h-5" />
+            {summary && (
+              <button onClick={() => setSummary(null)} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
+                <X className="w-5 h-5" />
               </button>
-            </div>
+            )}
           </div>
 
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+          <form onSubmit={handleSearch} className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
             <input 
               type="text"
-              placeholder="Cerca per titolo, contenuto o tag..."
-              className="w-full bg-slate-100 dark:bg-slate-900/50 border-none rounded-2xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Chiedimi di qualsiasi cosa (es: Napoleone)..."
+              className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-lg font-sans focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
-          </div>
-
-          {allTags.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-              <button 
-                onClick={() => setSelectedTag(null)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${!selectedTag ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
-              >
-                Tutti
-              </button>
-              {allTags.map(tag => (
-                <button 
-                  key={tag}
-                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${selectedTag === tag ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-                >
-                  <Hash className="w-3 h-3 opacity-50" />
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
+            {loading && (
+              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 animate-spin" />
+            )}
+          </form>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-6 py-12">
         
-        {/* Items Grid */}
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-20 opacity-20 flex flex-col items-center gap-4">
-            <Filter className="w-16 h-16" />
-            <p className="font-bold uppercase tracking-widest text-sm">Nessun elemento trovato</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2">
-            <AnimatePresence initial={false}>
-              {filteredItems.map((item) => (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="group bg-white dark:bg-[#161b22] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all relative overflow-hidden"
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-black text-lg leading-tight tracking-tight pr-8">{item.title}</h3>
-                      <button 
-                        onClick={() => deleteItem(item.id)}
-                        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    {item.content && (
-                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                        {item.content}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {item.tags.map(tag => (
-                        <span key={tag} className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md flex items-center gap-1">
-                          <Hash className="w-2 h-2" />
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </main>
-
-      {/* Add Item Modal */}
-      <AnimatePresence>
-        {isAdding && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md bg-black/40">
+        <AnimatePresence mode="wait">
+          {error && (
             <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="bg-white dark:bg-[#161b22] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl relative"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 p-6 rounded-3xl text-center space-y-2"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-xl font-black tracking-tight">Nuovo Elemento</h2>
-                <button 
-                  onClick={() => setIsAdding(false)}
-                  className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <p className="text-rose-600 dark:text-rose-400 font-bold font-sans">Ops! Qualcosa è andato storto</p>
+              <p className="text-sm opacity-70 italic">{error}</p>
+            </motion.div>
+          )}
+
+          {summary ? (
+            <motion.article 
+              key="summary"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-8"
+            >
+              {summary.thumbnail && (
+                <div className="relative aspect-video rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/10">
+                  <img 
+                    src={summary.thumbnail.source} 
+                    alt={summary.title} 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-indigo-500">
+                  <Sparkles className="w-4 h-4 fill-current" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] font-sans">Riassunto Automatico</span>
+                </div>
+                <h2 className="text-5xl font-black tracking-tight leading-none text-slate-900 dark:text-white">
+                  {summary.title}
+                </h2>
+                <div className="h-1.5 w-20 bg-indigo-600 rounded-full" />
               </div>
 
-              <div className="space-y-6">
-                <input 
-                  type="text"
-                  placeholder="Titolo (es: Codice Garage, Link Ricetta...)"
-                  className="w-full bg-transparent border-none text-2xl font-black placeholder:text-slate-200 dark:placeholder:text-slate-800 focus:ring-0 p-0"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  autoFocus
-                />
-                
-                <textarea 
-                  placeholder="Contenuto o note..."
-                  className="w-full bg-transparent border-none text-slate-500 dark:text-slate-400 focus:ring-0 p-0 resize-none h-24"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
+              <div className="prose prose-slate dark:prose-invert max-w-none">
+                <p className="text-xl md:text-2xl leading-relaxed text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:mr-2 first-letter:float-left">
+                  {summary.extract}
+                </p>
+              </div>
 
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {currentTags.map(tag => (
-                      <span key={tag} className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-2">
-                        {tag}
-                        <button onClick={() => removeCurrentTag(tag)}><X className="w-3 h-3" /></button>
-                      </span>
+              {summary.content_urls && (
+                <a 
+                  href={summary.content_urls.desktop.page} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-bold text-indigo-500 hover:text-indigo-600 transition-colors font-sans uppercase tracking-widest border-b-2 border-indigo-500/20 pb-1"
+                >
+                  Approfondisci su Wikipedia <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </motion.article>
+          ) : !loading && (
+            <motion.div 
+              key="initial"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-12"
+            >
+              {history.length > 0 && (
+                <section className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <History className="w-4 h-4" />
+                      <h3 className="text-xs font-black uppercase tracking-widest font-sans">Ricerche Recenti</h3>
+                    </div>
+                    <button 
+                      onClick={clearAllHistory}
+                      className="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest font-sans transition-colors"
+                    >
+                      Cancella tutto
+                    </button>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {history.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setQuery(item.title);
+                          fetchSummary(item.title);
+                        }}
+                        className="group flex items-center justify-between p-5 bg-white dark:bg-[#121212] border border-slate-100 dark:border-slate-800 rounded-2xl hover:border-indigo-500/30 transition-all text-left"
+                      >
+                        <div className="flex items-center gap-4">
+                          <Book className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                          <span className="font-bold font-sans">{item.title}</span>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                      </button>
                     ))}
                   </div>
-                  <div className="relative">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text"
-                      placeholder="Aggiungi tag e premi Invio"
-                      className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={addTag}
-                    />
-                  </div>
-                </div>
+                </section>
+              )}
 
-                <button 
-                  onClick={addItem}
-                  disabled={!title.trim()}
-                  className="w-full bg-indigo-600 disabled:opacity-50 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-indigo-500/30 active:scale-95 transition-all"
-                >
-                  Salva nel Vault
-                </button>
-              </div>
+              <section className="text-center space-y-6 py-12 bg-indigo-50 dark:bg-indigo-900/10 rounded-[3rem] p-8 border border-indigo-100 dark:border-indigo-900/30">
+                <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-indigo-500/10">
+                  <Sparkles className="w-8 h-8 text-indigo-500 fill-current" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black font-sans uppercase tracking-tight">Esplora il Mondo</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-sans leading-relaxed">
+                    Scrivi un argomento e ti fornirò un riassunto elegante e preciso, attingendo alla conoscenza globale.
+                  </p>
+                </div>
+              </section>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+
+      </main>
 
       {/* PWA Prompt */}
       {((isIOS || /Android/.test(navigator.userAgent)) && !isStandalone) && (
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
         >
           <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-            <Bookmark className="w-5 h-5 fill-current" />
+            <Globe className="w-5 h-5" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-tight leading-tight">
-            Installa il Vault: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
+          <p className="text-[10px] font-bold font-sans uppercase tracking-tight leading-tight">
+            Installa Smart Knowledge: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
           </p>
         </motion.div>
       )}
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@400;700;900&display=swap');
+        
+        .font-serif { font-family: 'Crimson Pro', serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+        
+        ::selection {
+          background: rgba(79, 70, 229, 0.1);
+          color: #4f46e5;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
