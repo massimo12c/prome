@@ -1,24 +1,50 @@
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, CloudRain, Flame, Coffee, Wind, TreePine, Volume2, X, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { Plus, ShoppingCart, Trash2, CheckCircle2, Circle, ShoppingBag } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const SOUNDS = [
-  { id: 'rain', name: 'Pioggia', icon: CloudRain, url: 'https://assets.mixkit.co/active_storage/sfx/2405/2405-preview.mp3' },
-  { id: 'fire', name: 'Fuoco', icon: Flame, url: 'https://assets.mixkit.co/active_storage/sfx/2413/2413-preview.mp3' },
-  { id: 'coffee', name: 'Caffè', icon: Coffee, url: 'https://assets.mixkit.co/active_storage/sfx/2437/2437-preview.mp3' },
-  { id: 'wind', name: 'Vento', icon: Wind, url: 'https://assets.mixkit.co/active_storage/sfx/2422/2422-preview.mp3' },
-  { id: 'forest', name: 'Foresta', icon: TreePine, url: 'https://assets.mixkit.co/active_storage/sfx/2411/2411-preview.mp3' },
-];
+interface ShoppingItem {
+  id: string;
+  text: string;
+  category: string;
+  completed: boolean;
+  quantity?: string;
+}
+
+const CATEGORY_MAP: Record<string, string> = {
+  'pane': 'Panetteria', 'focaccia': 'Panetteria', 'biscotti': 'Panetteria', 'cracker': 'Panetteria',
+  'latte': 'Latticini', 'formaggio': 'Latticini', 'burro': 'Latticini', 'yogurt': 'Latticini', 'panna': 'Latticini',
+  'mela': 'Ortofrutta', 'pera': 'Ortofrutta', 'banana': 'Ortofrutta', 'pomodoro': 'Ortofrutta', 'insalata': 'Ortofrutta', 'carota': 'Ortofrutta', 'patata': 'Ortofrutta',
+  'carne': 'Macelleria', 'pollo': 'Macelleria', 'manzo': 'Macelleria', 'prosciutto': 'Macelleria', 'salame': 'Macelleria',
+  'pesce': 'Pescheria', 'tonno': 'Pescheria', 'salmone': 'Pescheria',
+  'pasta': 'Dispensa', 'riso': 'Dispensa', 'farina': 'Dispensa', 'zucchero': 'Dispensa', 'sale': 'Dispensa', 'olio': 'Dispensa',
+  'acqua': 'Bevande', 'vino': 'Bevande', 'birra': 'Bevande', 'succo': 'Bevande', 'coca': 'Bevande',
+  'sapone': 'Igiene', 'shampoo': 'Igiene', 'dentifricio': 'Igiene', 'carta': 'Igiene',
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Panetteria': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  'Latticini': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  'Ortofrutta': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  'Macelleria': 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  'Pescheria': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  'Dispensa': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  'Bevande': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'Igiene': 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+  'Altro': 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+};
 
 function App() {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [totalTime, setTotalTime] = useState(25 * 60);
-  const [activeSounds, setActiveSounds] = useState<Record<string, boolean>>({});
+  const [items, setItems] = useState<ShoppingItem[]>(() => {
+    const saved = localStorage.getItem('shopping_list');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [inputText, setInputText] = useState('');
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-  
-  const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+
+  useEffect(() => {
+    localStorage.setItem('shopping_list', JSON.stringify(items));
+  }, [items]);
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -26,200 +52,171 @@ function App() {
     setIsStandalone((window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
   }, []);
 
-  useEffect(() => {
-    let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-      clearInterval(interval);
+  const addItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
+
+    const lowerText = inputText.toLowerCase();
+    let category = 'Altro';
+    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
+      if (lowerText.includes(key)) {
+        category = val;
+        break;
+      }
     }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
 
-  const toggleTimer = () => setIsActive(!isActive);
-  
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeLeft(totalTime);
+    const newItem: ShoppingItem = {
+      id: Date.now().toString(),
+      text: inputText.trim(),
+      category,
+      completed: false
+    };
+
+    setItems([newItem, ...items]);
+    setInputText('');
   };
 
-  const setDuration = (mins: number) => {
-    const secs = mins * 60;
-    setTotalTime(secs);
-    setTimeLeft(secs);
-    setIsActive(false);
+  const toggleComplete = (id: string) => {
+    setItems(items.map(item => 
+      item.id === id ? { ...item, completed: !item.completed } : item
+    ));
   };
 
-  const toggleSound = (id: string) => {
-    const isNowActive = !activeSounds[id];
-    setActiveSounds({ ...activeSounds, [id]: isNowActive });
-    
-    if (isNowActive) {
-      audioRefs.current[id].play().catch(e => console.log('Audio play blocked', e));
-      audioRefs.current[id].loop = true;
-    } else {
-      audioRefs.current[id].pause();
-    }
+  const deleteItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
   };
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  const clearCompleted = () => {
+    setItems(items.filter(item => !item.completed));
   };
 
-  const progress = (timeLeft / totalTime) * 100;
+  const categories = [...new Set(items.map(item => item.category))].sort((a, b) => 
+    a === 'Altro' ? 1 : b === 'Altro' ? -1 : a.localeCompare(b)
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0c] text-slate-800 dark:text-slate-200 transition-colors duration-1000 flex flex-col items-center justify-center p-6 font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0f1115] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-20">
       
-      {/* Hidden Audio Elements */}
-      {SOUNDS.map(sound => (
-        <audio 
-          key={sound.id}
-          ref={el => { if (el) audioRefs.current[sound.id] = el; }}
-          src={sound.url}
-          preload="auto"
-        />
-      ))}
-
-      {/* Background Animated Gradient */}
-      <div className="fixed inset-0 pointer-events-none opacity-30 dark:opacity-20">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-indigo-500/20 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div 
-          animate={{ 
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-emerald-500/20 to-transparent rounded-full blur-3xl"
-        />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md flex flex-col items-center gap-12">
-        
-        {/* Timer Circle */}
-        <div className="relative w-72 h-72 flex items-center justify-center">
-          <svg className="absolute inset-0 w-full h-full -rotate-90 transform">
-            <circle
-              cx="144"
-              cy="144"
-              r="130"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="transparent"
-              className="text-slate-200 dark:text-slate-800"
-            />
-            <motion.circle
-              cx="144"
-              cy="144"
-              r="130"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="transparent"
-              strokeDasharray="816.8"
-              animate={{ strokeDashoffset: 816.8 * (1 - progress / 100) }}
-              transition={{ duration: 1, ease: "linear" }}
-              className="text-indigo-500 dark:text-indigo-400"
-              strokeLinecap="round"
-            />
-          </svg>
-          
-          <div className="text-center flex flex-col items-center">
-            <motion.span 
-              key={timeLeft}
-              initial={{ opacity: 0.5, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-6xl font-extralight tracking-tighter"
-            >
-              {formatTime(timeLeft)}
-            </motion.span>
-            <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 mt-2">
-              {isActive ? 'Concentrazione' : 'Pronto'}
-            </p>
-          </div>
-        </div>
-
-        {/* Timer Controls */}
-        <div className="flex items-center gap-8">
-          <button 
-            onClick={resetTimer}
-            className="p-4 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-400"
-          >
-            <RotateCcw className="w-6 h-6" />
-          </button>
-          
-          <button 
-            onClick={toggleTimer}
-            className="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-xl shadow-indigo-500/20 active:scale-95 transition-all"
-          >
-            {isActive ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
-          </button>
-
-          <div className="flex flex-col gap-2">
-            {[15, 25, 45].map(m => (
-              <button 
-                key={m}
-                onClick={() => setDuration(m)}
-                className={`text-[10px] font-bold px-3 py-1 rounded-full border transition-all ${totalTime === m * 60 ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400'}`}
-              >
-                {m}m
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sound Mixer */}
-        <div className="w-full space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <Volume2 className="w-3 h-3 text-slate-400" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Mixer Ambientale</span>
-          </div>
-          
-          <div className="grid grid-cols-5 gap-3">
-            {SOUNDS.map(sound => (
-              <button
-                key={sound.id}
-                onClick={() => toggleSound(sound.id)}
-                className={`aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 transition-all active:scale-90 ${activeSounds[sound.id] ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-2 border-indigo-200 dark:border-indigo-800' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
-              >
-                <sound.icon className="w-6 h-6" />
-                <span className="text-[8px] font-bold uppercase tracking-tighter">{sound.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* iOS PWA Instructions */}
-        {isIOS && !isStandalone && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161616] border border-slate-100 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
-          >
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-2xl text-indigo-500">
-              <Plus className="w-5 h-5" />
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
+              <ShoppingBag className="w-6 h-6 text-white" />
             </div>
-            <p className="text-[10px] font-bold leading-tight uppercase tracking-tight">
-              Installa per un'esperienza Zen: clicca su <span className="inline-block border rounded px-1">↑</span> e poi su <br/> <strong>"Aggiungi alla schermata Home"</strong>.
-            </p>
-            <button onClick={() => setIsIOS(false)} className="text-slate-300 ml-auto">
-              <X className="w-4 h-4" />
+            <h1 className="text-xl font-bold tracking-tight">Smart Spesa</h1>
+          </div>
+          {items.some(i => i.completed) && (
+            <button 
+              onClick={clearCompleted}
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+            >
+              Pulisci carrello
             </button>
-          </motion.div>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-6 py-8">
+        
+        {/* Input Form */}
+        <form onSubmit={addItem} className="mb-10 relative">
+          <input 
+            type="text"
+            placeholder="Aggiungi prodotto (es. Latte, Mele...)"
+            className="w-full bg-white dark:bg-[#1a1d23] border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+          />
+          <Plus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <button 
+            type="submit"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </form>
+
+        {/* Categories & Items */}
+        {items.length === 0 ? (
+          <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
+            <ShoppingCart className="w-16 h-16" />
+            <p className="font-medium">La tua lista è vuota</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {categories.map(category => {
+              const categoryItems = items.filter(i => i.category === category);
+              const uncompleted = categoryItems.filter(i => !i.completed);
+              const completed = categoryItems.filter(i => i.completed);
+
+              if (categoryItems.length === 0) return null;
+
+              return (
+                <section key={category} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${CATEGORY_COLORS[category] || CATEGORY_COLORS['Altro']}`}>
+                      {category}
+                    </span>
+                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <AnimatePresence initial={false}>
+                      {[...uncompleted, ...completed].map((item) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className={`group flex items-center justify-between p-4 rounded-2xl border transition-all ${item.completed ? 'bg-slate-50 dark:bg-[#16191f] border-transparent opacity-50' : 'bg-white dark:bg-[#1a1d23] border-slate-100 dark:border-slate-800 shadow-sm'}`}
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <button 
+                              onClick={() => toggleComplete(item.id)}
+                              className={`transition-colors ${item.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                            >
+                              {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                            </button>
+                            <span className={`font-medium ${item.completed ? 'line-through text-slate-400' : ''}`}>
+                              {item.text}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => deleteItem(item.id)}
+                            className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         )}
 
-      </div>
+      </main>
+
+      {/* iOS/Android PWA Prompt */}
+      {((isIOS || /Android/.test(navigator.userAgent)) && !isStandalone) && (
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#1a1d23] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+        >
+          <div className="bg-indigo-600 p-3 rounded-2xl text-white">
+            <Plus className="w-5 h-5" />
+          </div>
+          <p className="text-[10px] font-bold uppercase tracking-tight leading-tight">
+            Installa la Spesa: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
+          </p>
+        </motion.div>
+      )}
+
     </div>
   );
 }

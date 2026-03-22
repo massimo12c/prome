@@ -1,11 +1,11 @@
 {
-  "name": "Zen Timer - Focus & Soundscapes",
-  "short_name": "ZenTimer",
-  "description": "Un timer minimale con suoni ambientali per la concentrazione",
+  "name": "Smart Spesa - La tua lista intelligente",
+  "short_name": "SmartSpesa",
+  "description": "Una lista della spesa che organizza i prodotti per categoria automaticamente",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a0c",
-  "theme_color": "#6366f1",
+  "background_color": "#f8f9fa",
+  "theme_color": "#4f46e5",
   "icons": [
     {
       "src": "/favicon.svg",
