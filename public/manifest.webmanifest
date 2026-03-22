@@ -1,11 +1,11 @@
 {
-  "name": "HoloOS - Ologramma Futuristico",
-  "short_name": "HoloOS",
-  "description": "Un'interfaccia olografica futuristica con meteo e orologio in tempo reale",
+  "name": "Daily Flow - Il tuo equilibrio quotidiano",
+  "short_name": "Flow",
+  "description": "Un'app minimale per gestire focus, idratazione e benessere ogni giorno",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#02040a",
-  "theme_color": "#00f2ff",
+  "background_color": "#fcfaf7",
+  "theme_color": "#f97316",
   "icons": [
     {
       "src": "/favicon.svg",
