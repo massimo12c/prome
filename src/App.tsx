@@ -163,22 +163,36 @@ function App() {
       <main className="max-w-md mx-auto px-6 -mt-12">
         
         {/* Budget Progress Card */}
-        <div className="bg-white dark:bg-[#161821] rounded-[2rem] p-6 shadow-xl mb-8">
-          <div className="flex justify-between items-end mb-3">
+        <div className="bg-white dark:bg-[#161821] rounded-[2rem] p-6 shadow-xl mb-8 border-2 border-indigo-500/5">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Budget Mensile</p>
-              <h2 className="text-xl font-bold">€ {totalSpent.toFixed(0)} <span className="text-slate-300 font-light">/ € {budget}</span></h2>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Stai spendendo</p>
+              <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
+                € {totalSpent.toFixed(2)}
+              </h2>
             </div>
-            <span className={`text-xs font-black ${budgetProgress > 90 ? 'text-rose-500' : 'text-indigo-500'}`}>
-              {budgetProgress.toFixed(0)}%
-            </span>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-2">Obiettivo</p>
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+                <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">€ {budget}</span>
+              </div>
+            </div>
           </div>
-          <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${budgetProgress}%` }}
-              className={`h-full transition-all duration-1000 ${budgetProgress > 90 ? 'bg-rose-500' : 'bg-indigo-500'}`}
-            />
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Progresso Spesa</span>
+              <span className={`text-sm font-black ${budgetProgress > 90 ? 'text-rose-500' : 'text-indigo-500'}`}>
+                {budgetProgress.toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-1">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${budgetProgress}%` }}
+                className={`h-full rounded-full transition-all duration-1000 ${budgetProgress > 90 ? 'bg-rose-500' : 'bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)]'}`}
+              />
+            </div>
           </div>
         </div>
 
