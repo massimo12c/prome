@@ -33,6 +33,7 @@ function App() {
     const saved = localStorage.getItem('monthly_budget');
     return saved ? JSON.parse(saved) : 1000;
   });
+  const [tempBudget, setTempBudget] = useState<string>(budget.toString());
   const [showBudgetEdit, setShowBudgetEdit] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -85,6 +86,19 @@ function App() {
     setTransactions(transactions.filter(t => t.id !== id));
   };
 
+  const handleOpenBudgetModal = () => {
+    setTempBudget(budget.toString());
+    setShowBudgetEdit(true);
+  };
+
+  const handleSaveBudget = () => {
+    const newBudget = parseFloat(tempBudget);
+    if (!isNaN(newBudget) && newBudget > 0) {
+      setBudget(newBudget);
+      setShowBudgetEdit(false);
+    }
+  };
+
   const currentMonthTransactions = transactions.filter(t => {
     const date = new Date(t.timestamp);
     const now = new Date();
@@ -115,7 +129,7 @@ function App() {
               <span className="text-sm font-bold opacity-80 tracking-widest uppercase">Il tuo Portafoglio</span>
             </div>
             <button 
-              onClick={() => setShowBudgetEdit(true)}
+              onClick={handleOpenBudgetModal}
               className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-[10px] font-bold transition-all"
             >
               Imposta Budget
@@ -252,15 +266,21 @@ function App() {
                 <h4 className="font-black uppercase tracking-widest text-xs">Imposta Budget Mensile</h4>
                 <button onClick={() => setShowBudgetEdit(false)}><X className="w-4 h-4" /></button>
               </div>
-              <input 
-                type="number"
-                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 px-4 text-center text-2xl font-black mb-6"
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-              />
+              <div className="relative mb-6">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300 dark:text-slate-700">€</span>
+                <input 
+                  type="text"
+                  inputMode="decimal"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-center text-2xl font-black"
+                  value={tempBudget}
+                  onChange={(e) => setTempBudget(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
               <button 
-                onClick={() => setShowBudgetEdit(false)}
-                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold"
+                onClick={handleSaveBudget}
+                disabled={!tempBudget || isNaN(parseFloat(tempBudget))}
+                className="w-full bg-indigo-600 disabled:opacity-50 text-white py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
               >
                 Salva
               </button>
