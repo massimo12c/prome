@@ -161,34 +161,59 @@ function App() {
                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                   </div>
 
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     <AnimatePresence initial={false}>
                       {[...uncompleted, ...completed].map((item) => (
                         <motion.div
                           key={item.id}
                           layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className={`group flex items-center justify-between p-4 rounded-2xl border transition-all ${item.completed ? 'bg-slate-50 dark:bg-[#16191f] border-transparent opacity-50' : 'bg-white dark:bg-[#1a1d23] border-slate-100 dark:border-slate-800 shadow-sm'}`}
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="relative overflow-hidden rounded-2xl"
                         >
-                          <div className="flex items-center gap-4 flex-1">
-                            <button 
-                              onClick={() => toggleComplete(item.id)}
-                              className={`transition-colors ${item.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
-                            >
-                              {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
-                            </button>
-                            <span className={`font-medium ${item.completed ? 'line-through text-slate-400' : ''}`}>
-                              {item.text}
-                            </span>
+                          {/* Delete Background (Revealed on Swipe) */}
+                          <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
+                            <Trash2 className="text-white w-6 h-6" />
                           </div>
-                          <button 
-                            onClick={() => deleteItem(item.id)}
-                            className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+
+                          {/* Swipeable Item Content */}
+                          <motion.div 
+                            drag="x"
+                            dragConstraints={{ left: -100, right: 0 }}
+                            dragElastic={0.1}
+                            onDragEnd={(_, info) => {
+                              if (info.offset.x < -60) {
+                                deleteItem(item.id);
+                              }
+                            }}
+                            className={`relative flex items-center justify-between p-4 bg-white dark:bg-[#1a1d23] border border-slate-100 dark:border-slate-800 rounded-2xl transition-all ${item.completed ? 'opacity-50' : 'shadow-sm'}`}
                           >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                            <div className="flex items-center gap-4 flex-1">
+                              <button 
+                                onClick={() => toggleComplete(item.id)}
+                                className={`transition-colors ${item.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                              >
+                                {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                              </button>
+                              <span className={`font-medium ${item.completed ? 'line-through text-slate-400' : ''}`}>
+                                {item.text}
+                              </span>
+                            </div>
+                            
+                            {/* Swipe Hint on Mobile */}
+                            <div className="md:hidden text-[8px] font-black uppercase tracking-tighter text-slate-300">
+                              ← swipe
+                            </div>
+
+                            {/* PC Delete Button (fallback) */}
+                            <button 
+                              onClick={() => deleteItem(item.id)}
+                              className="hidden md:block p-2 text-slate-300 hover:text-rose-500 transition-all"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </motion.div>
                         </motion.div>
                       ))}
                     </AnimatePresence>
