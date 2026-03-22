@@ -1,353 +1,238 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink, Trash2, Youtube, MessageSquareText } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
-interface Summary {
-  title: string;
-  extract: string;
-  thumbnail?: { source: string };
-  content_urls?: { desktop: { page: string } };
-}
-
-interface HistoryItem {
-  id: string;
-  title: string;
-  timestamp: number;
-}
+import { Sun, Wind, Thermometer, MapPin, Radio, Cpu, Activity, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function App() {
-  const [query, setQuery] = useState('');
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    const saved = localStorage.getItem('wiki_history');
-    return saved ? JSON.parse(saved) : [];
+  const [time, setTime] = useState(new Date());
+  const [weather] = useState({
+    temp: 24,
+    condition: 'Sunny',
+    city: 'Milano',
+    humidity: 45,
+    wind: 12
   });
-  
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    localStorage.setItem('wiki_history', JSON.stringify(history));
-  }, [history]);
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    
+    // Simulate mouse/gyro parallax
+    const handleMove = (e: MouseEvent) => {
+      const { innerWidth, innerHeight } = window;
+      const x = (e.clientX - innerWidth / 2) / 25;
+      const y = (e.clientY - innerHeight / 2) / 25;
+      setMousePos({ x, y });
+    };
 
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
-    setIsStandalone((window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
+    window.addEventListener('mousemove', handleMove);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('mousemove', handleMove);
+    };
   }, []);
 
-  const fetchSummary = async (searchTitle: string) => {
-    if (!searchTitle.trim()) return;
-    
-    setLoading(true);
-    setError('');
-    setSummary(null);
-
-    try {
-      // 1. Fetch Basic Info and Thumbnail
-      const summaryRes = await fetch(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTitle)}`);
-      if (!summaryRes.ok) throw new Error('Argomento non trovato.');
-      const summaryData = await summaryRes.json();
-
-      // 2. Fetch Deep Extract (Action API for more sentences)
-      const deepRes = await fetch(`https://it.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&titles=${encodeURIComponent(summaryData.title)}&explaintext=1&exsentences=10&origin=*`);
-      const deepData = await deepRes.json();
-      const pages = deepData.query.pages;
-      const pageId = Object.keys(pages)[0];
-      const deepExtract = pages[pageId].extract;
-
-      setSummary({
-        ...summaryData,
-        extract: deepExtract || summaryData.extract // Fallback to summary if deep fails
-      });
-
-      // Add to history
-      if (summaryData.title) {
-        const newHistoryItem: HistoryItem = {
-          id: Date.now().toString(),
-          title: summaryData.title,
-          timestamp: Date.now()
-        };
-        setHistory(prev => [newHistoryItem, ...prev.filter(h => h.title !== summaryData.title)].slice(0, 10));
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchSummary(query);
-  };
-
-  const deleteHistoryItem = (id: string) => {
-    setHistory(history.filter(h => h.id !== id));
-  };
-
-  const clearAllHistory = () => {
-    setHistory([]);
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase();
   };
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] dark:bg-[#080808] text-slate-900 dark:text-slate-100 transition-colors duration-500 font-serif">
+    <div className="min-h-screen bg-[#02040a] text-[#00f2ff] overflow-hidden font-mono flex items-center justify-center p-4">
       
-      {/* Search Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#080808]/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2 rounded-2xl shadow-lg shadow-indigo-500/20">
-                <Globe className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-2xl font-black tracking-tighter font-sans uppercase">Smart Knowledge</h1>
+      {/* Background Grid & Scanlines */}
+      <div className="fixed inset-0 pointer-events-none opacity-20">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-50 bg-[length:100%_2px,3px_100%]" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-10" />
+      </div>
+
+      {/* Main Hologram Container */}
+      <motion.div 
+        style={{ 
+          rotateX: -mousePos.y, 
+          rotateY: mousePos.x,
+          transformStyle: "preserve-3d"
+        }}
+        className="relative w-full max-w-4xl grid grid-cols-12 gap-4"
+      >
+        
+        {/* TOP ROW: LOGO & STATUS */}
+        <div className="col-span-12 flex justify-between items-end border-b border-[#00f2ff]/30 pb-4 mb-2">
+          <div className="flex items-center gap-3">
+            <Cpu className="w-6 h-6 animate-pulse" />
+            <div className="leading-none">
+              <h1 className="text-xl font-black tracking-tighter uppercase italic">HoloOS v4.0</h1>
+              <p className="text-[8px] opacity-50 tracking-[0.4em]">NEURAL INTERFACE ACTIVE</p>
             </div>
-            {summary && (
-              <button onClick={() => setSummary(null)} className="text-slate-400 hover:text-slate-600 transition-colors p-2">
-                <X className="w-5 h-5" />
-              </button>
-            )}
           </div>
-
-          <form onSubmit={handleSearch} className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-            <input 
-              type="text"
-              placeholder="Chiedimi di qualsiasi cosa (es: Napoleone)..."
-              className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-lg font-sans focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {loading && (
-              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 animate-spin" />
-            )}
-          </form>
-
-          {/* Quick Links */}
-          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pt-2">
-            <a 
-              href={`https://www.google.com/search?q=${encodeURIComponent(query || 'Napoleone')}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-indigo-500/30 transition-all shadow-sm"
-            >
-              <Globe className="w-3 h-3 text-blue-500" />
-              Google
-            </a>
-            <a 
-              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query || 'Napoleone')}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-red-500/30 transition-all shadow-sm"
-            >
-              <Youtube className="w-3 h-3 text-red-500" />
-              YouTube
-            </a>
-            <a 
-              href="https://chatgpt.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-emerald-500/30 transition-all shadow-sm"
-            >
-              <MessageSquareText className="w-3 h-3 text-emerald-500" />
-              ChatGPT
-            </a>
+          <div className="text-right">
+            <div className="flex items-center gap-2 justify-end mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+              <span className="text-[10px] font-bold tracking-widest uppercase">System Stable</span>
+            </div>
+            <p className="text-[8px] opacity-50 font-bold uppercase tracking-widest">Lat: 45.4642° N | Lon: 9.1900° E</p>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        
-        <AnimatePresence mode="wait">
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 p-6 rounded-3xl text-center space-y-2"
-            >
-              <p className="text-rose-600 dark:text-rose-400 font-bold font-sans">Ops! Qualcosa è andato storto</p>
-              <p className="text-sm opacity-70 italic">{error}</p>
-            </motion.div>
-          )}
-
-          {summary ? (
-            <motion.article 
-              key="summary"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="space-y-8"
-            >
-              {summary.thumbnail && (
-                <div className="relative aspect-video rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/10">
-                  <img 
-                    src={summary.thumbnail.source} 
-                    alt={summary.title} 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-indigo-500">
-                  <Sparkles className="w-4 h-4 fill-current" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] font-sans">Riassunto Automatico</span>
-                </div>
-                <h2 className="text-5xl font-black tracking-tight leading-none text-slate-900 dark:text-white">
-                  {summary.title}
-                </h2>
-                <div className="h-1.5 w-20 bg-indigo-600 rounded-full" />
-              </div>
-
-              <div className="prose prose-slate dark:prose-invert max-w-none">
-                <p className="text-xl md:text-2xl leading-relaxed text-slate-700 dark:text-slate-300 first-letter:text-5xl first-letter:font-black first-letter:mr-2 first-letter:float-left">
-                  {summary.extract}
-                </p>
-              </div>
-
-              {summary.content_urls && (
-                <a 
-                  href={summary.content_urls.desktop.page} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-bold text-indigo-500 hover:text-indigo-600 transition-colors font-sans uppercase tracking-widest border-b-2 border-indigo-500/20 pb-1"
-                >
-                  Approfondisci su Wikipedia <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-            </motion.article>
-          ) : !loading && (
-            <motion.div 
-              key="initial"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="space-y-12"
-            >
-              {history.length > 0 && (
-                <section className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <History className="w-4 h-4" />
-                      <h3 className="text-xs font-black uppercase tracking-widest font-sans">Ricerche Recenti</h3>
-                    </div>
-                    <button 
-                      onClick={clearAllHistory}
-                      className="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest font-sans transition-colors"
-                    >
-                      Cancella tutto
-                    </button>
-                  </div>
-                  
-                  <div className="grid gap-3">
-                    <AnimatePresence initial={false}>
-                      {history.map((item) => (
-                        <motion.div
-                          key={item.id}
-                          layout
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="relative overflow-hidden rounded-2xl"
-                        >
-                          {/* Delete Background (Revealed on Swipe) */}
-                          <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
-                            <Trash2 className="text-white w-5 h-5" />
-                          </div>
-
-                          {/* Swipeable Item Content */}
-                          <motion.div 
-                            drag="x"
-                            dragConstraints={{ left: -100, right: 0 }}
-                            dragElastic={0.1}
-                            onDragEnd={(_, info) => {
-                              if (info.offset.x < -60) {
-                                deleteHistoryItem(item.id);
-                              }
-                            }}
-                            className="relative flex items-center justify-between p-5 bg-white dark:bg-[#121212] border border-slate-100 dark:border-slate-800 rounded-2xl transition-all"
-                          >
-                            <button
-                              onClick={() => {
-                                setQuery(item.title);
-                                fetchSummary(item.title);
-                              }}
-                              className="group flex items-center gap-4 text-left flex-1"
-                            >
-                              <Book className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
-                              <span className="font-bold font-sans">{item.title}</span>
-                            </button>
-                            
-                            <div className="flex items-center gap-3">
-                              <div className="md:hidden text-[8px] font-black uppercase tracking-tighter text-slate-300">
-                                ← swipe
-                              </div>
-                              <button 
-                                onClick={() => deleteHistoryItem(item.id)}
-                                className="hidden md:block p-2 text-slate-300 hover:text-rose-500 transition-all"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                              <ArrowRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-                            </div>
-                          </motion.div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                </section>
-              )}
-
-              <section className="text-center space-y-6 py-12 bg-indigo-50 dark:bg-indigo-900/10 rounded-[3rem] p-8 border border-indigo-100 dark:border-indigo-900/30">
-                <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-indigo-500/10">
-                  <Sparkles className="w-8 h-8 text-indigo-500 fill-current" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black font-sans uppercase tracking-tight">Esplora il Mondo</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-sans leading-relaxed">
-                    Scrivi un argomento e ti fornirò un riassunto elegante e preciso, attingendo alla conoscenza globale.
-                  </p>
-                </div>
-              </section>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      </main>
-
-      {/* PWA Prompt */}
-      {((isIOS || /Android/.test(navigator.userAgent)) && !isStandalone) && (
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
-        >
-          <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-            <Globe className="w-5 h-5" />
+        {/* MAIN CLOCK BENTO (Big Center) */}
+        <div className="col-span-12 md:col-span-8 bg-[#00f2ff]/5 border border-[#00f2ff]/20 rounded-3xl p-8 relative overflow-hidden backdrop-blur-md shadow-[0_0_30px_rgba(0,242,255,0.05)]">
+          <div className="absolute top-4 left-6 flex items-center gap-2 opacity-40">
+            <Clock className="w-3 h-3" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Chronos Module</span>
           </div>
-          <p className="text-[10px] font-bold font-sans uppercase tracking-tight leading-tight">
-            Installa Smart Knowledge: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
-          </p>
-        </motion.div>
-      )}
+          
+          <div className="mt-8 flex flex-col items-center">
+            <motion.div 
+              key={time.getSeconds()}
+              initial={{ opacity: 0.8, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-8xl md:text-9xl font-black tracking-tighter flex gap-2 drop-shadow-[0_0_15px_rgba(0,242,255,0.5)]"
+            >
+              {formatTime(time)}
+            </motion.div>
+            <div className="mt-4 flex items-center gap-4 text-sm font-bold tracking-[0.5em] opacity-60">
+              <div className="h-px w-12 bg-[#00f2ff]/30" />
+              {formatDate(time)}
+              <div className="h-px w-12 bg-[#00f2ff]/30" />
+            </div>
+          </div>
+
+          {/* Glitch Decorative Element */}
+          <div className="absolute bottom-4 right-6 opacity-20">
+            <Activity className="w-12 h-12" />
+          </div>
+        </div>
+
+        {/* WEATHER BENTO (Right Side) */}
+        <div className="col-span-12 md:col-span-4 bg-indigo-600/10 border border-indigo-500/30 rounded-3xl p-8 backdrop-blur-md relative group overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          <div className="flex flex-col h-full justify-between relative z-10">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                  <MapPin className="w-3 h-3" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{weather.city}</span>
+                </div>
+                <h3 className="text-3xl font-black uppercase tracking-tight italic">Sunny</h3>
+              </div>
+              <Sun className="w-12 h-12 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-spin-slow" />
+            </div>
+
+            <div className="mt-8">
+              <div className="flex items-end gap-1 mb-4">
+                <span className="text-6xl font-black tracking-tighter italic">{weather.temp}</span>
+                <span className="text-2xl font-light mb-2">°C</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 border-t border-indigo-500/20 pt-4">
+                <div>
+                  <p className="text-[8px] opacity-50 uppercase tracking-widest mb-1">Humidity</p>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 flex-1 bg-indigo-900/50 rounded-full overflow-hidden">
+                      <div className="h-full w-1/2 bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
+                    </div>
+                    <span className="text-[10px] font-bold italic">{weather.humidity}%</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[8px] opacity-50 uppercase tracking-widest mb-1">Wind Speed</p>
+                  <div className="flex items-center gap-2">
+                    <Wind className="w-3 h-3 text-indigo-400" />
+                    <span className="text-[10px] font-bold italic">{weather.wind} km/h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM ROW: SENSORS & SIGNAL */}
+        <div className="col-span-12 md:col-span-4 bg-white/5 border border-white/10 rounded-3xl p-6 flex items-center gap-6">
+          <div className="w-12 h-12 rounded-2xl bg-[#00f2ff]/10 flex items-center justify-center border border-[#00f2ff]/20">
+            <Radio className="w-6 h-6 animate-bounce" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest opacity-50">
+              <span>Signal Strength</span>
+              <span>98%</span>
+            </div>
+            <div className="flex gap-1 h-1">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className={`flex-1 rounded-full ${i < 10 ? 'bg-[#00f2ff]' : 'bg-slate-800'}`} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 md:col-span-8 bg-white/5 border border-white/10 rounded-3xl p-6 flex items-center justify-between">
+          <div className="flex gap-8">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-1">CPU Load</span>
+              <div className="flex items-end gap-1 h-6">
+                {[4, 8, 6, 10, 5, 12, 7, 9].map((h, i) => (
+                  <motion.div 
+                    key={i}
+                    animate={{ height: `${h * 8}%` }}
+                    transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse", delay: i * 0.1 }}
+                    className="w-1.5 bg-indigo-500 rounded-t-sm"
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-1">Core Temp</span>
+              <div className="flex items-center gap-2 text-xl font-black italic">
+                <Thermometer className="w-4 h-4 text-rose-500" />
+                38.4°
+              </div>
+            </div>
+          </div>
+          
+          <button className="bg-[#00f2ff] text-black px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(0,242,255,0.3)] hover:shadow-[0_0_30px_rgba(0,242,255,0.5)] transition-all active:scale-95">
+            Sync Neural Link
+          </button>
+        </div>
+
+      </motion.div>
+
+      {/* Decorative Glitch Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-1/4 left-10 w-32 h-px bg-[#00f2ff]/20 animate-pulse" />
+        <div className="absolute bottom-1/3 right-20 w-px h-48 bg-indigo-500/20 animate-pulse" />
+      </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100;0,400;0,800;1,100;1,400;1,800&display=swap');
         
-        .font-serif { font-family: 'Crimson Pro', serif; }
-        .font-sans { font-family: 'Inter', sans-serif; }
-        
-        ::selection {
-          background: rgba(79, 70, 229, 0.1);
-          color: #4f46e5;
+        body {
+          font-family: 'JetBrains Mono', monospace;
+          background: #02040a;
+          perspective: 1000px;
         }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .bg-grid-pattern {
+          background-image: 
+            linear-gradient(to right, rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
+
+        .animate-spin-slow {
+          animation: spin 12s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        ::selection {
+          background: #00f2ff;
+          color: #000;
+        }
       `}</style>
     </div>
   );
