@@ -46,23 +46,31 @@ function App() {
     setSummary(null);
 
     try {
-      const response = await fetch(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTitle)}`);
-      
-      if (!response.ok) {
-        throw new Error('Argomento non trovato. Prova con un termine più preciso.');
-      }
+      // 1. Fetch Basic Info and Thumbnail
+      const summaryRes = await fetch(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTitle)}`);
+      if (!summaryRes.ok) throw new Error('Argomento non trovato.');
+      const summaryData = await summaryRes.json();
 
-      const data = await response.json();
-      setSummary(data);
+      // 2. Fetch Deep Extract (Action API for more sentences)
+      const deepRes = await fetch(`https://it.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&titles=${encodeURIComponent(summaryData.title)}&explaintext=1&exsentences=10&origin=*`);
+      const deepData = await deepRes.json();
+      const pages = deepData.query.pages;
+      const pageId = Object.keys(pages)[0];
+      const deepExtract = pages[pageId].extract;
+
+      setSummary({
+        ...summaryData,
+        extract: deepExtract || summaryData.extract // Fallback to summary if deep fails
+      });
 
       // Add to history
-      if (data.title) {
+      if (summaryData.title) {
         const newHistoryItem: HistoryItem = {
           id: Date.now().toString(),
-          title: data.title,
+          title: summaryData.title,
           timestamp: Date.now()
         };
-        setHistory(prev => [newHistoryItem, ...prev.filter(h => h.title !== data.title)].slice(0, 10));
+        setHistory(prev => [newHistoryItem, ...prev.filter(h => h.title !== summaryData.title)].slice(0, 10));
       }
     } catch (err: any) {
       setError(err.message);
