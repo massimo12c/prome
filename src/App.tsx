@@ -18,6 +18,8 @@ function App() {
   const [time, setTime] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   // Audio for notification
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -27,6 +29,14 @@ function App() {
   }, [reminders]);
 
   useEffect(() => {
+    // Check if device is iOS
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(iOS);
+    
+    // Check if app is installed (standalone)
+    const standalone = (window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    setIsStandalone(standalone);
+
     const timer = setInterval(() => {
       const now = new Date();
       setCurrentTime(now);
@@ -115,8 +125,22 @@ function App() {
           </p>
         </div>
 
+        {/* iOS Specific Instructions */}
+        {isIOS && !isStandalone && (
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <div className="bg-blue-500 rounded-full p-1 mt-0.5">
+                <Plus className="w-3 h-3 text-white" />
+              </div>
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Per le notifiche su iOS:</strong> Clicca sull'icona di condivisione <span className="inline-block border border-blue-300 rounded px-1 text-xs">↑</span> e seleziona <strong>"Aggiungi alla schermata Home"</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Notification Banner */}
-        {notificationPermission !== 'granted' && (
+        {(!isIOS || isStandalone) && notificationPermission !== 'granted' && (
           <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-amber-500" />
