@@ -1,11 +1,11 @@
 {
-  "name": "Diario - Custodisci i tuoi pensieri",
-  "short_name": "Diario",
-  "description": "Un diario minimale per custodire un pensiero al giorno",
+  "name": "Zen Timer - Focus & Soundscapes",
+  "short_name": "ZenTimer",
+  "description": "Un timer minimale con suoni ambientali per la concentrazione",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#faf9f6",
-  "theme_color": "#4f46e5",
+  "background_color": "#0a0a0c",
+  "theme_color": "#6366f1",
   "icons": [
     {
       "src": "/favicon.svg",
