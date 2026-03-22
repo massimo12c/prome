@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Bell, Clock, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Bell, Clock, Trash2, CheckCircle2, AlertCircle, Trash } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Reminder {
   id: string;
@@ -110,6 +111,10 @@ function App() {
     setReminders(reminders.filter(r => r.id !== id));
   };
 
+  const clearCompleted = () => {
+    setReminders(reminders.filter(r => !r.completed));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center py-12 px-4 transition-colors duration-300">
       <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
@@ -195,52 +200,98 @@ function App() {
 
         {/* Reminders List */}
         <div className="space-y-4">
-          <h2 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2">
-            I tuoi promemoria
-          </h2>
-          
-          {reminders.length === 0 ? (
-            <div className="text-center py-12 opacity-50">
-              <Bell className="w-12 h-12 mx-auto mb-4 text-slate-300 dark:text-slate-700" />
-              <p className="text-slate-500">Nessun promemoria impostato</p>
-            </div>
-          ) : (
-            reminders.map((reminder) => (
-              <div 
-                key={reminder.id}
-                className={`group bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 flex items-center justify-between transition-all hover:shadow-md ${reminder.completed ? 'opacity-60' : ''}`}
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              I tuoi promemoria
+            </h2>
+            {reminders.some(r => r.completed) && (
+              <button 
+                onClick={clearCompleted}
+                className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
               >
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={() => toggleComplete(reminder.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      reminder.completed 
-                      ? 'bg-emerald-500 border-emerald-500 text-white' 
-                      : 'border-slate-200 dark:border-slate-700 hover:border-indigo-500'
-                    }`}
-                  >
-                    {reminder.completed && <CheckCircle2 className="w-4 h-4" />}
-                  </button>
-                  <div>
-                    <h3 className={`font-medium transition-all ${reminder.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                      {reminder.text}
-                    </h3>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                      <Clock className="w-3 h-3" />
-                      {reminder.time}
-                    </div>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => deleteReminder(reminder.id)}
-                  className="text-slate-300 hover:text-rose-500 p-2 transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <Trash className="w-3 h-3" />
+                Cancella completati
+              </button>
+            )}
+          </div>
+          
+          <div className="max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
+            {reminders.length === 0 ? (
+              <div className="text-center py-12 opacity-50">
+                <Bell className="w-12 h-12 mx-auto mb-4 text-slate-300 dark:text-slate-700" />
+                <p className="text-slate-500">Nessun promemoria impostato</p>
               </div>
-            ))
-          )}
+            ) : (
+              <div className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {reminders.map((reminder) => (
+                    <motion.div
+                      key={reminder.id}
+                      initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      className="relative overflow-hidden rounded-2xl"
+                    >
+                      {/* Delete Background */}
+                      <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
+                        <Trash2 className="text-white w-6 h-6" />
+                      </div>
+
+                      {/* Swipeable Foreground */}
+                      <motion.div 
+                        drag="x"
+                        dragConstraints={{ left: -100, right: 0 }}
+                        dragElastic={0.2}
+                        onDragEnd={(_, info) => {
+                          if (info.offset.x < -60) {
+                            deleteReminder(reminder.id);
+                          }
+                        }}
+                        className={`relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 flex items-center justify-between transition-colors ${reminder.completed ? 'opacity-60' : ''}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => toggleComplete(reminder.id)}
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                              reminder.completed 
+                              ? 'bg-emerald-500 border-emerald-500 text-white' 
+                              : 'border-slate-200 dark:border-slate-700 hover:border-indigo-500'
+                            }`}
+                          >
+                            {reminder.completed && <CheckCircle2 className="w-4 h-4" />}
+                          </button>
+                          <div>
+                            <h3 className={`font-medium transition-all ${reminder.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                              {reminder.text}
+                            </h3>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                              <Clock className="w-3 h-3" />
+                              {reminder.time}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* PC Delete Button (fallback) */}
+                        <button 
+                          onClick={() => deleteReminder(reminder.id)}
+                          className="text-slate-300 hover:text-rose-500 p-2 transition-colors hidden md:block"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+
+                        {/* Mobile Swipe Hint (on iOS) */}
+                        {isIOS && (
+                          <div className="md:hidden text-[10px] text-slate-300 font-bold uppercase tracking-tighter">
+                            ← swipe
+                          </div>
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
