@@ -1,50 +1,46 @@
 import { useState, useEffect } from 'react';
-import { Plus, ShoppingCart, Trash2, CheckCircle2, Circle, ShoppingBag } from 'lucide-react';
+import { Plus, Trash2, Wallet, PieChart, TrendingUp, TrendingDown, DollarSign, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface ShoppingItem {
+interface Transaction {
   id: string;
-  text: string;
+  amount: number;
+  description: string;
   category: string;
-  completed: boolean;
-  quantity?: string;
+  date: string;
+  timestamp: number;
 }
 
 const CATEGORY_MAP: Record<string, string> = {
-  'pane': 'Panetteria', 'focaccia': 'Panetteria', 'biscotti': 'Panetteria', 'cracker': 'Panetteria',
-  'latte': 'Latticini', 'formaggio': 'Latticini', 'burro': 'Latticini', 'yogurt': 'Latticini', 'panna': 'Latticini',
-  'mela': 'Ortofrutta', 'pera': 'Ortofrutta', 'banana': 'Ortofrutta', 'pomodoro': 'Ortofrutta', 'insalata': 'Ortofrutta', 'carota': 'Ortofrutta', 'patata': 'Ortofrutta',
-  'carne': 'Macelleria', 'pollo': 'Macelleria', 'manzo': 'Macelleria', 'prosciutto': 'Macelleria', 'salame': 'Macelleria',
-  'pesce': 'Pescheria', 'tonno': 'Pescheria', 'salmone': 'Pescheria',
-  'pasta': 'Dispensa', 'riso': 'Dispensa', 'farina': 'Dispensa', 'zucchero': 'Dispensa', 'sale': 'Dispensa', 'olio': 'Dispensa',
-  'acqua': 'Bevande', 'vino': 'Bevande', 'birra': 'Bevande', 'succo': 'Bevande', 'coca': 'Bevande',
-  'sapone': 'Igiene', 'shampoo': 'Igiene', 'dentifricio': 'Igiene', 'carta': 'Igiene',
+  'pizza': 'Cibo', 'ristorante': 'Cibo', 'cena': 'Cibo', 'pranzo': 'Cibo', 'spesa': 'Cibo', 'caffè': 'Cibo', 'bar': 'Cibo',
+  'benzina': 'Trasporti', 'auto': 'Trasporti', 'treno': 'Trasporti', 'bus': 'Trasporti', 'parcheggio': 'Trasporti',
+  'affitto': 'Casa', 'bolletta': 'Casa', 'luce': 'Casa', 'gas': 'Casa', 'internet': 'Casa',
+  'cinema': 'Svago', 'teatro': 'Svago', 'gioco': 'Svago', 'abbonamento': 'Svago', 'netflix': 'Svago',
+  'stipendio': 'Entrate', 'bonus': 'Entrate', 'regalo': 'Entrate',
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Panetteria': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  'Latticini': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  'Ortofrutta': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  'Macelleria': 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  'Pescheria': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-  'Dispensa': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  'Bevande': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  'Igiene': 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
-  'Altro': 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+const CATEGORY_ICONS: Record<string, any> = {
+  'Cibo': '🍔', 'Trasporti': '🚗', 'Casa': '🏠', 'Svago': '🎮', 'Entrate': '💰', 'Altro': '📦'
 };
 
 function App() {
-  const [items, setItems] = useState<ShoppingItem[]>(() => {
-    const saved = localStorage.getItem('shopping_list');
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('expenses');
     return saved ? JSON.parse(saved) : [];
   });
   const [inputText, setInputText] = useState('');
+  const [budget, setBudget] = useState<number>(() => {
+    const saved = localStorage.getItem('monthly_budget');
+    return saved ? JSON.parse(saved) : 1000;
+  });
+  const [showBudgetEdit, setShowBudgetEdit] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('shopping_list', JSON.stringify(items));
-  }, [items]);
+    localStorage.setItem('expenses', JSON.stringify(transactions));
+    localStorage.setItem('monthly_budget', JSON.stringify(budget));
+  }, [transactions, budget]);
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -52,192 +48,239 @@ function App() {
     setIsStandalone((window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
   }, []);
 
-  const addItem = (e: React.FormEvent) => {
+  const addTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
-    const lowerText = inputText.toLowerCase();
+    // Pattern: "10 pizza" or "pizza 10"
+    const amountMatch = inputText.match(/(\d+([.,]\d+)?)/);
+    if (!amountMatch) return;
+
+    const amount = parseFloat(amountMatch[1].replace(',', '.'));
+    const description = inputText.replace(amountMatch[0], '').trim() || 'Spesa generica';
+    
     let category = 'Altro';
+    const lowerDesc = description.toLowerCase();
     for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-      if (lowerText.includes(key)) {
+      if (lowerDesc.includes(key)) {
         category = val;
         break;
       }
     }
 
-    const newItem: ShoppingItem = {
+    const newTransaction: Transaction = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      amount,
+      description,
       category,
-      completed: false
+      date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }),
+      timestamp: Date.now()
     };
 
-    setItems([newItem, ...items]);
+    setTransactions([newTransaction, ...transactions]);
     setInputText('');
   };
 
-  const toggleComplete = (id: string) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, completed: !item.completed } : item
-    ));
+  const deleteTransaction = (id: string) => {
+    setTransactions(transactions.filter(t => t.id !== id));
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
-  };
+  const currentMonthTransactions = transactions.filter(t => {
+    const date = new Date(t.timestamp);
+    const now = new Date();
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  });
 
-  const clearCompleted = () => {
-    setItems(items.filter(item => !item.completed));
-  };
+  const totalSpent = currentMonthTransactions
+    .filter(t => t.category !== 'Entrate')
+    .reduce((acc, t) => acc + t.amount, 0);
 
-  const categories = [...new Set(items.map(item => item.category))].sort((a, b) => 
-    a === 'Altro' ? 1 : b === 'Altro' ? -1 : a.localeCompare(b)
-  );
+  const totalEarned = currentMonthTransactions
+    .filter(t => t.category === 'Entrate')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const balance = totalEarned - totalSpent;
+  const budgetProgress = Math.min((totalSpent / budget) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0f1115] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-20">
+    <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#090a0f] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-10">
       
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
-              <ShoppingBag className="w-6 h-6 text-white" />
+      {/* Header / Wallet Card */}
+      <header className="bg-indigo-600 dark:bg-indigo-700 text-white pt-10 pb-20 px-6 rounded-b-[3rem] shadow-2xl shadow-indigo-500/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+        <div className="max-w-md mx-auto relative z-10">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 opacity-80" />
+              <span className="text-sm font-bold opacity-80 tracking-widest uppercase">Il tuo Portafoglio</span>
             </div>
-            <h1 className="text-xl font-bold tracking-tight">Smart Spesa</h1>
-          </div>
-          {items.some(i => i.completed) && (
             <button 
-              onClick={clearCompleted}
-              className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+              onClick={() => setShowBudgetEdit(true)}
+              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-[10px] font-bold transition-all"
             >
-              Pulisci carrello
+              Imposta Budget
             </button>
-          )}
+          </div>
+          
+          <div className="space-y-1 mb-8">
+            <h1 className="text-4xl font-black tracking-tighter">€ {balance.toFixed(2)}</h1>
+            <p className="text-xs opacity-60 font-bold uppercase tracking-widest">Saldo Mensile</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="bg-emerald-500/20 p-2 rounded-xl"><TrendingUp className="w-4 h-4 text-emerald-400" /></div>
+              <div>
+                <p className="text-[10px] opacity-60 font-bold">Entrate</p>
+                <p className="font-bold tracking-tight">€ {totalEarned.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
+              <div className="bg-rose-500/20 p-2 rounded-xl"><TrendingDown className="w-4 h-4 text-rose-400" /></div>
+              <div>
+                <p className="text-[10px] opacity-60 font-bold">Uscite</p>
+                <p className="font-bold tracking-tight">€ {totalSpent.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-md mx-auto px-6 -mt-12">
         
-        {/* Input Form */}
-        <form onSubmit={addItem} className="mb-10 relative">
+        {/* Budget Progress Card */}
+        <div className="bg-white dark:bg-[#161821] rounded-[2rem] p-6 shadow-xl mb-8">
+          <div className="flex justify-between items-end mb-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Budget Mensile</p>
+              <h2 className="text-xl font-bold">€ {totalSpent.toFixed(0)} <span className="text-slate-300 font-light">/ € {budget}</span></h2>
+            </div>
+            <span className={`text-xs font-black ${budgetProgress > 90 ? 'text-rose-500' : 'text-indigo-500'}`}>
+              {budgetProgress.toFixed(0)}%
+            </span>
+          </div>
+          <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${budgetProgress}%` }}
+              className={`h-full transition-all duration-1000 ${budgetProgress > 90 ? 'bg-rose-500' : 'bg-indigo-500'}`}
+            />
+          </div>
+        </div>
+
+        {/* Input Bar */}
+        <form onSubmit={addTransaction} className="relative mb-8">
           <input 
             type="text"
-            placeholder="Aggiungi prodotto (es. Latte, Mele...)"
-            className="w-full bg-white dark:bg-[#1a1d23] border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+            placeholder="Es: '10 Pizza' o 'Stipendio 1500'"
+            className="w-full bg-white dark:bg-[#161821] border-none rounded-2xl py-4 pl-12 pr-4 shadow-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
           />
-          <Plus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <button 
-            type="submit"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-colors"
-          >
+          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500" />
+          <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl">
             <Plus className="w-5 h-5" />
           </button>
         </form>
 
-        {/* Categories & Items */}
-        {items.length === 0 ? (
-          <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-            <ShoppingCart className="w-16 h-16" />
-            <p className="font-medium">La tua lista è vuota</p>
+        {/* Transactions List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ultime Operazioni</h3>
+            <PieChart className="w-4 h-4 text-slate-400" />
           </div>
-        ) : (
-          <div className="space-y-10">
-            {categories.map(category => {
-              const categoryItems = items.filter(i => i.category === category);
-              const uncompleted = categoryItems.filter(i => !i.completed);
-              const completed = categoryItems.filter(i => i.completed);
 
-              if (categoryItems.length === 0) return null;
-
-              return (
-                <section key={category} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${CATEGORY_COLORS[category] || CATEGORY_COLORS['Altro']}`}>
-                      {category}
-                    </span>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+          <div className="space-y-3">
+            <AnimatePresence initial={false}>
+              {transactions.map((t) => (
+                <motion.div
+                  key={t.id}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="relative overflow-hidden rounded-2xl"
+                >
+                  <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6">
+                    <Trash2 className="text-white w-5 h-5" />
                   </div>
 
-                  <div className="grid gap-3">
-                    <AnimatePresence initial={false}>
-                      {[...uncompleted, ...completed].map((item) => (
-                        <motion.div
-                          key={item.id}
-                          layout
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="relative overflow-hidden rounded-2xl"
-                        >
-                          {/* Delete Background (Revealed on Swipe) */}
-                          <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
-                            <Trash2 className="text-white w-6 h-6" />
-                          </div>
+                  <motion.div 
+                    drag="x"
+                    dragConstraints={{ left: -100, right: 0 }}
+                    onDragEnd={(_, info) => info.offset.x < -60 && deleteTransaction(t.id)}
+                    className="relative bg-white dark:bg-[#161821] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-800/50"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-2xl bg-slate-50 dark:bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl shadow-inner">
+                        {CATEGORY_ICONS[t.category] || CATEGORY_ICONS['Altro']}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm capitalize">{t.description}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{t.category} • {t.date}</p>
+                      </div>
+                    </div>
+                    <div className={`text-right font-black tracking-tighter ${t.category === 'Entrate' ? 'text-emerald-500' : ''}`}>
+                      {t.category === 'Entrate' ? '+' : '-'} € {t.amount.toFixed(2)}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
-                          {/* Swipeable Item Content */}
-                          <motion.div 
-                            drag="x"
-                            dragConstraints={{ left: -100, right: 0 }}
-                            dragElastic={0.1}
-                            onDragEnd={(_, info) => {
-                              if (info.offset.x < -60) {
-                                deleteItem(item.id);
-                              }
-                            }}
-                            className={`relative flex items-center justify-between p-4 bg-white dark:bg-[#1a1d23] border border-slate-100 dark:border-slate-800 rounded-2xl transition-all ${item.completed ? 'opacity-50' : 'shadow-sm'}`}
-                          >
-                            <div className="flex items-center gap-4 flex-1">
-                              <button 
-                                onClick={() => toggleComplete(item.id)}
-                                className={`transition-colors ${item.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
-                              >
-                                {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
-                              </button>
-                              <span className={`font-medium ${item.completed ? 'line-through text-slate-400' : ''}`}>
-                                {item.text}
-                              </span>
-                            </div>
-                            
-                            {/* Swipe Hint on Mobile */}
-                            <div className="md:hidden text-[8px] font-black uppercase tracking-tighter text-slate-300">
-                              ← swipe
-                            </div>
-
-                            {/* PC Delete Button (fallback) */}
-                            <button 
-                              onClick={() => deleteItem(item.id)}
-                              className="hidden md:block p-2 text-slate-300 hover:text-rose-500 transition-all"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </motion.div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                </section>
-              );
-            })}
+            {transactions.length === 0 && (
+              <div className="text-center py-10 opacity-20 flex flex-col items-center gap-4">
+                <TrendingUp className="w-12 h-12" />
+                <p className="font-bold uppercase tracking-widest text-[10px]">Nessuna spesa registrata</p>
+              </div>
+            )}
           </div>
-        )}
-
+        </div>
       </main>
 
-      {/* iOS/Android PWA Prompt */}
+      {/* Budget Edit Modal */}
+      <AnimatePresence>
+        {showBudgetEdit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-sm bg-black/20">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-[#161821] w-full max-w-xs rounded-3xl p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="font-black uppercase tracking-widest text-xs">Imposta Budget Mensile</h4>
+                <button onClick={() => setShowBudgetEdit(false)}><X className="w-4 h-4" /></button>
+              </div>
+              <input 
+                type="number"
+                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 px-4 text-center text-2xl font-black mb-6"
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+              />
+              <button 
+                onClick={() => setShowBudgetEdit(false)}
+                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold"
+              >
+                Salva
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* iOS/Android Prompt */}
       {((isIOS || /Android/.test(navigator.userAgent)) && !isStandalone) && (
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#1a1d23] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161821] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
         >
           <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-            <Plus className="w-5 h-5" />
+            <ArrowRight className="w-5 h-5 rotate-[-90deg]" />
           </div>
           <p className="text-[10px] font-bold uppercase tracking-tight leading-tight">
-            Installa la Spesa: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
+            Installa Smart Budget: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
           </p>
         </motion.div>
       )}

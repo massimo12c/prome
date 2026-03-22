@@ -1,10 +1,10 @@
 {
-  "name": "Smart Spesa - La tua lista intelligente",
-  "short_name": "SmartSpesa",
-  "description": "Una lista della spesa che organizza i prodotti per categoria automaticamente",
+  "name": "Smart Budget - Gestione Spese Intelligente",
+  "short_name": "SmartBudget",
+  "description": "Un gestore di spese minimale che categorizza i tuoi acquisti automaticamente",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8f9fa",
+  "background_color": "#090a0f",
   "theme_color": "#4f46e5",
   "icons": [
     {
