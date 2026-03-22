@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink } from 'lucide-react';
+import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Summary {
@@ -82,6 +82,10 @@ function App() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchSummary(query);
+  };
+
+  const deleteHistoryItem = (id: string) => {
+    setHistory(history.filter(h => h.id !== id));
   };
 
   const clearAllHistory = () => {
@@ -209,22 +213,60 @@ function App() {
                   </div>
                   
                   <div className="grid gap-3">
-                    {history.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setQuery(item.title);
-                          fetchSummary(item.title);
-                        }}
-                        className="group flex items-center justify-between p-5 bg-white dark:bg-[#121212] border border-slate-100 dark:border-slate-800 rounded-2xl hover:border-indigo-500/30 transition-all text-left"
-                      >
-                        <div className="flex items-center gap-4">
-                          <Book className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
-                          <span className="font-bold font-sans">{item.title}</span>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-                      </button>
-                    ))}
+                    <AnimatePresence initial={false}>
+                      {history.map((item) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="relative overflow-hidden rounded-2xl"
+                        >
+                          {/* Delete Background (Revealed on Swipe) */}
+                          <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
+                            <Trash2 className="text-white w-5 h-5" />
+                          </div>
+
+                          {/* Swipeable Item Content */}
+                          <motion.div 
+                            drag="x"
+                            dragConstraints={{ left: -100, right: 0 }}
+                            dragElastic={0.1}
+                            onDragEnd={(_, info) => {
+                              if (info.offset.x < -60) {
+                                deleteHistoryItem(item.id);
+                              }
+                            }}
+                            className="relative flex items-center justify-between p-5 bg-white dark:bg-[#121212] border border-slate-100 dark:border-slate-800 rounded-2xl transition-all"
+                          >
+                            <button
+                              onClick={() => {
+                                setQuery(item.title);
+                                fetchSummary(item.title);
+                              }}
+                              className="group flex items-center gap-4 text-left flex-1"
+                            >
+                              <Book className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                              <span className="font-bold font-sans">{item.title}</span>
+                            </button>
+                            
+                            <div className="flex items-center gap-3">
+                              <div className="md:hidden text-[8px] font-black uppercase tracking-tighter text-slate-300">
+                                ← swipe
+                              </div>
+                              <button 
+                                onClick={() => deleteHistoryItem(item.id)}
+                                className="hidden md:block p-2 text-slate-300 hover:text-rose-500 transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                              <ArrowRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </section>
               )}
