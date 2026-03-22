@@ -1,299 +1,252 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Bell, Clock, Trash2, CheckCircle2, AlertCircle, Trash } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Calendar, BookOpen, PenLine, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Reminder {
+interface DiaryEntry {
   id: string;
+  date: string;
   text: string;
-  time: string;
-  completed: boolean;
-  notified: boolean;
+  timestamp: number;
 }
 
 function App() {
-  const [reminders, setReminders] = useState<Reminder[]>(() => {
-    const saved = localStorage.getItem('reminders');
+  const [entries, setEntries] = useState<DiaryEntry[]>(() => {
+    const saved = localStorage.getItem('diary_entries');
     return saved ? JSON.parse(saved) : [];
   });
-  const [text, setText] = useState('');
-  const [time, setTime] = useState('');
+  const [inputText, setInputText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-
-  // Audio for notification
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isWriting, setIsWriting] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('reminders', JSON.stringify(reminders));
-  }, [reminders]);
+    localStorage.setItem('diary_entries', JSON.stringify(entries));
+  }, [entries]);
 
   useEffect(() => {
-    // Check if device is iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(iOS);
-    
-    // Check if app is installed (standalone)
     const standalone = (window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
     setIsStandalone(standalone);
 
-    const timer = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      checkReminders(now);
-    }, 1000);
-
-    if ('Notification' in window) {
-      setNotificationPermission(Notification.permission);
-    }
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [reminders]);
+  }, []);
 
-  const requestPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-    }
-  };
+  const addEntry = () => {
+    if (!inputText.trim()) return;
 
-  const checkReminders = (now: Date) => {
-    const currentStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false });
-    
-    reminders.forEach(reminder => {
-      if (!reminder.completed && !reminder.notified && reminder.time === currentStr) {
-        showNotification(reminder);
-        setReminders(prev => prev.map(r => 
-          r.id === reminder.id ? { ...r, notified: true } : r
-        ));
-      }
-    });
-  };
-
-  const showNotification = (reminder: Reminder) => {
-    if (notificationPermission === 'granted') {
-      new Notification('Promemoria!', {
-        body: reminder.text,
-        icon: '/favicon.svg'
-      });
-    }
-    // Play sound if possible
-    if (audioRef.current) {
-      audioRef.current.play().catch(e => console.log('Audio play blocked', e));
-    }
-  };
-
-  const addReminder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text || !time) return;
-
-    const newReminder: Reminder = {
+    const newEntry: DiaryEntry = {
       id: Date.now().toString(),
-      text,
-      time,
-      completed: false,
-      notified: false
+      date: new Date().toLocaleDateString('it-IT', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      }),
+      text: inputText.trim(),
+      timestamp: Date.now()
     };
 
-    setReminders([newReminder, ...reminders]);
-    setText('');
-    setTime('');
+    setEntries([newEntry, ...entries]);
+    setInputText('');
+    setIsWriting(false);
   };
 
-  const toggleComplete = (id: string) => {
-    setReminders(reminders.map(r => 
-      r.id === id ? { ...r, completed: !r.completed } : r
-    ));
+  const deleteEntry = (id: string) => {
+    setEntries(entries.filter(e => e.id !== id));
   };
 
-  const deleteReminder = (id: string) => {
-    setReminders(reminders.filter(r => r.id !== id));
-  };
+  const filteredEntries = entries.filter(e => 
+    e.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    e.date.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const clearCompleted = () => {
-    setReminders(reminders.filter(r => !r.completed));
-  };
+  const todayEntry = entries.find(e => 
+    new Date(e.timestamp).toDateString() === new Date().toDateString()
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center py-12 px-4 transition-colors duration-300">
-      <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" />
+    <div className="min-h-screen bg-[#faf9f6] dark:bg-[#0c0c0c] text-[#2c2c2c] dark:text-[#e0e0e0] transition-colors duration-500 font-serif">
       
-      <div className="w-full max-w-md">
-        {/* Header / Clock */}
-        <div className="text-center mb-10">
-          <h1 className="text-5xl font-light text-slate-900 dark:text-white mb-2 tracking-tight">
-            {currentTime.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest text-xs">
-            {currentTime.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
-        </div>
-
-        {/* iOS Specific Instructions */}
-        {isIOS && !isStandalone && (
-          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <div className="bg-blue-500 rounded-full p-1 mt-0.5">
-                <Plus className="w-3 h-3 text-white" />
-              </div>
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Per le notifiche su iOS:</strong> Clicca sull'icona di condivisione <span className="inline-block border border-blue-300 rounded px-1 text-xs">↑</span> e seleziona <strong>"Aggiungi alla schermata Home"</strong>.
+      <div className="max-w-2xl mx-auto px-6 py-12 md:py-20">
+        
+        {/* Header */}
+        <header className="mb-16 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h1 className="text-4xl font-medium tracking-tight text-[#1a1a1a] dark:text-white">
+                Diario Personale
+              </h1>
+              <p className="text-sm text-slate-400 uppercase tracking-[0.2em] font-sans font-bold">
+                {currentTime.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
             </div>
+            <BookOpen className="w-8 h-8 text-indigo-500/50" />
           </div>
-        )}
+        </header>
 
-        {/* Notification Banner */}
-        {(!isIOS || isStandalone) && notificationPermission !== 'granted' && (
-          <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-500" />
-              <p className="text-sm text-amber-800 dark:text-amber-200">Abilita le notifiche per non perdere i promemoria</p>
-            </div>
-            <button 
-              onClick={requestPermission}
-              className="text-xs font-bold uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-full transition-colors"
-            >
-              Abilita
-            </button>
-          </div>
-        )}
+        {/* Search Bar */}
+        <div className="relative mb-12 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-400 transition-colors" />
+          <input 
+            type="text"
+            placeholder="Cerca nei tuoi ricordi..."
+            className="w-full bg-white dark:bg-[#161616] border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-        {/* Add Reminder Form */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 p-6 mb-8">
-          <form onSubmit={addReminder} className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Cosa devi fare?"
-                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-4 pl-4 pr-12 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 transition-all"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <Plus className="w-5 h-5" />
-              </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <input
-                  type="time"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-4 pl-12 pr-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all appearance-none"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Clock className="w-5 h-5" />
+        {/* Writing Section */}
+        <div className="mb-16">
+          <AnimatePresence mode="wait">
+            {!isWriting ? (
+              <motion.button
+                key="add-button"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                onClick={() => setIsWriting(true)}
+                disabled={!!todayEntry && !searchQuery}
+                className={`w-full group bg-white dark:bg-[#161616] border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl p-8 flex flex-col items-center justify-center gap-4 transition-all hover:border-indigo-200 dark:hover:border-indigo-900/50 ${!!todayEntry ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-indigo-500/5'}`}
+              >
+                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                  <PenLine className="w-6 h-6" />
                 </div>
-              </div>
-              <button
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-2xl font-semibold transition-all shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 flex items-center justify-center"
-              >
-                Aggiungi
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Reminders List */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-              I tuoi promemoria
-            </h2>
-            {reminders.some(r => r.completed) && (
-              <button 
-                onClick={clearCompleted}
-                className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
-              >
-                <Trash className="w-3 h-3" />
-                Cancella completati
-              </button>
-            )}
-          </div>
-          
-          <div className="max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
-            {reminders.length === 0 ? (
-              <div className="text-center py-12 opacity-50">
-                <Bell className="w-12 h-12 mx-auto mb-4 text-slate-300 dark:text-slate-700" />
-                <p className="text-slate-500">Nessun promemoria impostato</p>
-              </div>
+                <div className="text-center">
+                  <p className="font-medium text-lg">
+                    {todayEntry ? 'Hai già scritto per oggi' : 'Cosa hai in mente?'}
+                  </p>
+                  <p className="text-sm text-slate-400 font-sans mt-1">
+                    {todayEntry ? 'Torna domani per un nuovo pensiero' : 'Scrivi un solo pensiero per custodire la giornata'}
+                  </p>
+                </div>
+              </motion.button>
             ) : (
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {reminders.map((reminder) => (
-                    <motion.div
-                      key={reminder.id}
-                      initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                      animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
-                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                      className="relative overflow-hidden rounded-2xl"
-                    >
-                      {/* Delete Background */}
-                      <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6 rounded-2xl">
-                        <Trash2 className="text-white w-6 h-6" />
-                      </div>
+              <motion.div
+                key="writing-box"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white dark:bg-[#161616] border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl shadow-indigo-500/10"
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest font-sans">Nuovo Pensiero</span>
+                  <button onClick={() => setIsWriting(false)} className="text-slate-300 hover:text-slate-500 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <textarea
+                  autoFocus
+                  placeholder="Oggi è stato..."
+                  className="w-full bg-transparent border-none focus:ring-0 text-xl leading-relaxed resize-none h-32 placeholder:text-slate-200 dark:placeholder:text-slate-800"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                />
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={addEntry}
+                    disabled={!inputText.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-8 py-3 rounded-2xl font-sans font-bold transition-all active:scale-95 shadow-lg shadow-indigo-200 dark:shadow-none"
+                  >
+                    Custodisci
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-                      {/* Swipeable Foreground */}
-                      <motion.div 
-                        drag="x"
-                        dragConstraints={{ left: -100, right: 0 }}
-                        dragElastic={0.2}
-                        onDragEnd={(_, info) => {
-                          if (info.offset.x < -60) {
-                            deleteReminder(reminder.id);
-                          }
-                        }}
-                        className={`relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 flex items-center justify-between transition-colors ${reminder.completed ? 'opacity-60' : ''}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <button 
-                            onClick={() => toggleComplete(reminder.id)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                              reminder.completed 
-                              ? 'bg-emerald-500 border-emerald-500 text-white' 
-                              : 'border-slate-200 dark:border-slate-700 hover:border-indigo-500'
-                            }`}
-                          >
-                            {reminder.completed && <CheckCircle2 className="w-4 h-4" />}
-                          </button>
-                          <div>
-                            <h3 className={`font-medium transition-all ${reminder.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                              {reminder.text}
-                            </h3>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                              <Clock className="w-3 h-3" />
-                              {reminder.time}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* PC Delete Button (fallback) */}
+        {/* Entries List */}
+        <div className="space-y-8">
+          <div className="flex items-center gap-4 text-slate-300 dark:text-slate-700">
+            <div className="h-px flex-1 bg-current opacity-20" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] font-sans">I tuoi ricordi</span>
+            <div className="h-px flex-1 bg-current opacity-20" />
+          </div>
+
+          <div className="space-y-12">
+            <AnimatePresence initial={false}>
+              {filteredEntries.map((entry) => (
+                <motion.div
+                  key={entry.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="group relative"
+                >
+                  <div className="flex gap-6">
+                    <div className="hidden md:flex flex-col items-center gap-2 pt-1">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500/30 group-hover:bg-indigo-500 transition-colors" />
+                      <div className="w-px flex-1 bg-slate-100 dark:bg-slate-800" />
+                    </div>
+                    
+                    <div className="flex-1 space-y-3 pb-8">
+                      <div className="flex items-center justify-between">
+                        <time className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-sans flex items-center gap-2">
+                          <Calendar className="w-3 h-3" />
+                          {entry.date}
+                        </time>
                         <button 
-                          onClick={() => deleteReminder(reminder.id)}
-                          className="text-slate-300 hover:text-rose-500 p-2 transition-colors hidden md:block"
+                          onClick={() => deleteEntry(entry.id)}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-500 transition-all"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+                      <p className="text-lg md:text-xl text-[#333] dark:text-[#ccc] leading-relaxed">
+                        {entry.text}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
-                        {/* Mobile Swipe Hint (on iOS) */}
-                        {isIOS && (
-                          <div className="md:hidden text-[10px] text-slate-300 font-bold uppercase tracking-tighter">
-                            ← swipe
-                          </div>
-                        )}
-                      </motion.div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+            {filteredEntries.length === 0 && (
+              <div className="text-center py-20 opacity-20 grayscale">
+                <BookOpen className="w-16 h-16 mx-auto mb-4" />
+                <p className="font-medium italic">Ancora nessun ricordo custodito...</p>
               </div>
             )}
           </div>
         </div>
+
+        {/* iOS PWA Instructions */}
+        {isIOS && !isStandalone && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161616] border border-slate-100 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+          >
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-2xl text-indigo-500">
+              <Plus className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-sans leading-tight pr-4">
+              <strong>Installa il Diario:</strong> clicca sull'icona di condivisione <span className="inline-block border rounded px-1">↑</span> e poi su <strong>"Aggiungi alla schermata Home"</strong>.
+            </p>
+            <button onClick={() => setIsIOS(false)} className="text-slate-300 ml-auto">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;700&display=swap');
+        
+        .font-serif { font-family: 'Crimson Pro', serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+        
+        ::selection {
+          background: rgba(79, 70, 229, 0.1);
+          color: #4f46e5;
+        }
+      `}</style>
     </div>
   );
 }

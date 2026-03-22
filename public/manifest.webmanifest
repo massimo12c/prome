@@ -1,10 +1,10 @@
 {
-  "name": "Prome - Promemoria Elegante",
-  "short_name": "Prome",
-  "description": "App di promemoria elegante con orario e notifiche",
+  "name": "Diario - Custodisci i tuoi pensieri",
+  "short_name": "Diario",
+  "description": "Un diario minimale per custodire un pensiero al giorno",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#faf9f6",
   "theme_color": "#4f46e5",
   "icons": [
     {
