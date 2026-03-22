@@ -1,10 +1,10 @@
 {
-  "name": "Smart Budget - Gestione Spese Intelligente",
-  "short_name": "SmartBudget",
-  "description": "Un gestore di spese minimale che categorizza i tuoi acquisti automaticamente",
+  "name": "Smart Vault - Archivio Intelligente",
+  "short_name": "SmartVault",
+  "description": "Un archivio personale per salvare note e idee organizzate con i tuoi tag",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090a0f",
+  "background_color": "#f6f8fa",
   "theme_color": "#4f46e5",
   "icons": [
     {

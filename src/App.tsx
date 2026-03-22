@@ -1,47 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Wallet, PieChart, TrendingUp, TrendingDown, DollarSign, ArrowRight, X } from 'lucide-react';
+import { Plus, Search, Trash2, X, Hash, Filter, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Transaction {
+interface VaultItem {
   id: string;
-  amount: number;
-  description: string;
-  category: string;
-  date: string;
+  title: string;
+  content: string;
+  tags: string[];
   timestamp: number;
 }
 
-const CATEGORY_MAP: Record<string, string> = {
-  'pizza': 'Cibo', 'ristorante': 'Cibo', 'cena': 'Cibo', 'pranzo': 'Cibo', 'spesa': 'Cibo', 'caffè': 'Cibo', 'bar': 'Cibo',
-  'benzina': 'Trasporti', 'auto': 'Trasporti', 'treno': 'Trasporti', 'bus': 'Trasporti', 'parcheggio': 'Trasporti',
-  'affitto': 'Casa', 'bolletta': 'Casa', 'luce': 'Casa', 'gas': 'Casa', 'internet': 'Casa',
-  'cinema': 'Svago', 'teatro': 'Svago', 'gioco': 'Svago', 'abbonamento': 'Svago', 'netflix': 'Svago',
-  'stipendio': 'Entrate', 'bonus': 'Entrate', 'regalo': 'Entrate',
-};
-
-const CATEGORY_ICONS: Record<string, any> = {
-  'Cibo': '🍔', 'Trasporti': '🚗', 'Casa': '🏠', 'Svago': '🎮', 'Entrate': '💰', 'Altro': '📦'
-};
-
 function App() {
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('expenses');
+  const [items, setItems] = useState<VaultItem[]>(() => {
+    const saved = localStorage.getItem('vault_items');
     return saved ? JSON.parse(saved) : [];
   });
-  const [inputText, setInputText] = useState('');
-  const [budget, setBudget] = useState<number>(() => {
-    const saved = localStorage.getItem('monthly_budget');
-    return saved ? JSON.parse(saved) : 1000;
-  });
-  const [tempBudget, setTempBudget] = useState<string>(budget.toString());
-  const [showBudgetEdit, setShowBudgetEdit] = useState(false);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [currentTags, setCurrentTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(transactions));
-    localStorage.setItem('monthly_budget', JSON.stringify(budget));
-  }, [transactions, budget]);
+    localStorage.setItem('vault_items', JSON.stringify(items));
+  }, [items]);
 
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -49,276 +36,251 @@ function App() {
     setIsStandalone((window as any).navigator.standalone || window.matchMedia('(display-mode: standalone)').matches);
   }, []);
 
-  const addTransaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
-
-    // Pattern: "10 pizza" or "pizza 10"
-    const amountMatch = inputText.match(/(\d+([.,]\d+)?)/);
-    if (!amountMatch) return;
-
-    const amount = parseFloat(amountMatch[1].replace(',', '.'));
-    const description = inputText.replace(amountMatch[0], '').trim() || 'Spesa generica';
-    
-    let category = 'Altro';
-    const lowerDesc = description.toLowerCase();
-    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-      if (lowerDesc.includes(key)) {
-        category = val;
-        break;
+  const addTag = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      if (!currentTags.includes(tagInput.trim().toLowerCase())) {
+        setCurrentTags([...currentTags, tagInput.trim().toLowerCase()]);
       }
+      setTagInput('');
     }
+  };
 
-    const newTransaction: Transaction = {
+  const removeCurrentTag = (tagToRemove: string) => {
+    setCurrentTags(currentTags.filter(t => t !== tagToRemove));
+  };
+
+  const addItem = () => {
+    if (!title.trim()) return;
+
+    const newItem: VaultItem = {
       id: Date.now().toString(),
-      amount,
-      description,
-      category,
-      date: new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }),
+      title: title.trim(),
+      content: content.trim(),
+      tags: currentTags,
       timestamp: Date.now()
     };
 
-    setTransactions([newTransaction, ...transactions]);
-    setInputText('');
+    setItems([newItem, ...items]);
+    setTitle('');
+    setContent('');
+    setCurrentTags([]);
+    setIsAdding(false);
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter(t => t.id !== id));
+  const deleteItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
   };
 
-  const handleOpenBudgetModal = () => {
-    setTempBudget(budget.toString());
-    setShowBudgetEdit(true);
-  };
+  const allTags = [...new Set(items.flatMap(item => item.tags))].sort();
 
-  const handleSaveBudget = () => {
-    const newBudget = parseFloat(tempBudget);
-    if (!isNaN(newBudget) && newBudget > 0) {
-      setBudget(newBudget);
-      setShowBudgetEdit(false);
-    }
-  };
-
-  const currentMonthTransactions = transactions.filter(t => {
-    const date = new Date(t.timestamp);
-    const now = new Date();
-    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         item.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTag = !selectedTag || item.tags.includes(selectedTag);
+    return matchesSearch && matchesTag;
   });
 
-  const totalSpent = currentMonthTransactions
-    .filter(t => t.category !== 'Entrate')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalEarned = currentMonthTransactions
-    .filter(t => t.category === 'Entrate')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const balance = totalEarned - totalSpent;
-  const budgetProgress = Math.min((totalSpent / budget) * 100, 100);
-
   return (
-    <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#090a0f] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-10">
+    <div className="min-h-screen bg-[#f6f8fa] dark:bg-[#0d1117] text-slate-900 dark:text-slate-100 transition-colors duration-300 font-sans pb-24">
       
-      {/* Header / Wallet Card */}
-      <header className="bg-indigo-600 dark:bg-indigo-700 text-white pt-10 pb-20 px-6 rounded-b-[3rem] shadow-2xl shadow-indigo-500/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
-        <div className="max-w-md mx-auto relative z-10">
-          <div className="flex justify-between items-center mb-8">
+      {/* Top Navigation & Filters */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#0d1117]/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 opacity-80" />
-              <span className="text-sm font-bold opacity-80 tracking-widest uppercase">Il tuo Portafoglio</span>
+              <div className="bg-indigo-600 p-1.5 rounded-lg">
+                <Bookmark className="w-5 h-5 text-white fill-current" />
+              </div>
+              <h1 className="text-xl font-black tracking-tight">Smart Vault</h1>
             </div>
-            <button 
-              onClick={handleOpenBudgetModal}
-              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-[10px] font-bold transition-all"
-            >
-              Imposta Budget
-            </button>
-          </div>
-          
-          <div className="space-y-1 mb-8">
-            <h1 className="text-4xl font-black tracking-tighter">€ {balance.toFixed(2)}</h1>
-            <p className="text-xs opacity-60 font-bold uppercase tracking-widest">Saldo Mensile</p>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsAdding(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="bg-emerald-500/20 p-2 rounded-xl"><TrendingUp className="w-4 h-4 text-emerald-400" /></div>
-              <div>
-                <p className="text-[10px] opacity-60 font-bold">Entrate</p>
-                <p className="font-bold tracking-tight">€ {totalEarned.toFixed(2)}</p>
-              </div>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="bg-rose-500/20 p-2 rounded-xl"><TrendingDown className="w-4 h-4 text-rose-400" /></div>
-              <div>
-                <p className="text-[10px] opacity-60 font-bold">Uscite</p>
-                <p className="font-bold tracking-tight">€ {totalSpent.toFixed(2)}</p>
-              </div>
-            </div>
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <input 
+              type="text"
+              placeholder="Cerca per titolo, contenuto o tag..."
+              className="w-full bg-slate-100 dark:bg-slate-900/50 border-none rounded-2xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
+
+          {allTags.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+              <button 
+                onClick={() => setSelectedTag(null)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${!selectedTag ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+              >
+                Tutti
+              </button>
+              {allTags.map(tag => (
+                <button 
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${selectedTag === tag ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                >
+                  <Hash className="w-3 h-3 opacity-50" />
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-6 -mt-12">
+      <main className="max-w-3xl mx-auto px-6 py-8">
         
-        {/* Budget Progress Card */}
-        <div className="bg-white dark:bg-[#161821] rounded-[2rem] p-6 shadow-xl mb-8 border-2 border-indigo-500/5">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Stai spendendo</p>
-              <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
-                € {totalSpent.toFixed(2)}
-              </h2>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-2">Obiettivo</p>
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
-                <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">€ {budget}</span>
-              </div>
-            </div>
+        {/* Items Grid */}
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-20 opacity-20 flex flex-col items-center gap-4">
+            <Filter className="w-16 h-16" />
+            <p className="font-bold uppercase tracking-widest text-sm">Nessun elemento trovato</p>
           </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Progresso Spesa</span>
-              <span className={`text-sm font-black ${budgetProgress > 90 ? 'text-rose-500' : 'text-indigo-500'}`}>
-                {budgetProgress.toFixed(0)}%
-              </span>
-            </div>
-            <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-1">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${budgetProgress}%` }}
-                className={`h-full rounded-full transition-all duration-1000 ${budgetProgress > 90 ? 'bg-rose-500' : 'bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)]'}`}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Input Bar */}
-        <form onSubmit={addTransaction} className="relative mb-8">
-          <input 
-            type="text"
-            placeholder="Es: '10 Pizza' o 'Stipendio 1500'"
-            className="w-full bg-white dark:bg-[#161821] border-none rounded-2xl py-4 pl-12 pr-4 shadow-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
-          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500" />
-          <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl">
-            <Plus className="w-5 h-5" />
-          </button>
-        </form>
-
-        {/* Transactions List */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ultime Operazioni</h3>
-            <PieChart className="w-4 h-4 text-slate-400" />
-          </div>
-
-          <div className="space-y-3">
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2">
             <AnimatePresence initial={false}>
-              {transactions.map((t) => (
+              {filteredItems.map((item) => (
                 <motion.div
-                  key={t.id}
+                  key={item.id}
                   layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="relative overflow-hidden rounded-2xl"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="group bg-white dark:bg-[#161b22] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all relative overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-rose-500 flex items-center justify-end px-6">
-                    <Trash2 className="text-white w-5 h-5" />
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-black text-lg leading-tight tracking-tight pr-8">{item.title}</h3>
+                      <button 
+                        onClick={() => deleteItem(item.id)}
+                        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {item.content && (
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 leading-relaxed">
+                        {item.content}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {item.tags.map(tag => (
+                        <span key={tag} className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <Hash className="w-2 h-2" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-
-                  <motion.div 
-                    drag="x"
-                    dragConstraints={{ left: -100, right: 0 }}
-                    onDragEnd={(_, info) => info.offset.x < -60 && deleteTransaction(t.id)}
-                    className="relative bg-white dark:bg-[#161821] p-4 flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-800/50"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-2xl bg-slate-50 dark:bg-slate-800 w-12 h-12 flex items-center justify-center rounded-xl shadow-inner">
-                        {CATEGORY_ICONS[t.category] || CATEGORY_ICONS['Altro']}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm capitalize">{t.description}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{t.category} • {t.date}</p>
-                      </div>
-                    </div>
-                    <div className={`text-right font-black tracking-tighter ${t.category === 'Entrate' ? 'text-emerald-500' : ''}`}>
-                      {t.category === 'Entrate' ? '+' : '-'} € {t.amount.toFixed(2)}
-                    </div>
-                  </motion.div>
                 </motion.div>
               ))}
             </AnimatePresence>
-
-            {transactions.length === 0 && (
-              <div className="text-center py-10 opacity-20 flex flex-col items-center gap-4">
-                <TrendingUp className="w-12 h-12" />
-                <p className="font-bold uppercase tracking-widest text-[10px]">Nessuna spesa registrata</p>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </main>
 
-      {/* Budget Edit Modal */}
+      {/* Add Item Modal */}
       <AnimatePresence>
-        {showBudgetEdit && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-sm bg-black/20">
+        {isAdding && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-md bg-black/40">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-[#161821] w-full max-w-xs rounded-3xl p-6 shadow-2xl"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="bg-white dark:bg-[#161b22] w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl relative"
             >
-              <div className="flex justify-between items-center mb-6">
-                <h4 className="font-black uppercase tracking-widest text-xs">Imposta Budget Mensile</h4>
-                <button onClick={() => setShowBudgetEdit(false)}><X className="w-4 h-4" /></button>
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-black tracking-tight">Nuovo Elemento</h2>
+                <button 
+                  onClick={() => setIsAdding(false)}
+                  className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="relative mb-6">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300 dark:text-slate-700">€</span>
+
+              <div className="space-y-6">
                 <input 
                   type="text"
-                  inputMode="decimal"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-center text-2xl font-black"
-                  value={tempBudget}
-                  onChange={(e) => setTempBudget(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="Titolo (es: Codice Garage, Link Ricetta...)"
+                  className="w-full bg-transparent border-none text-2xl font-black placeholder:text-slate-200 dark:placeholder:text-slate-800 focus:ring-0 p-0"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  autoFocus
                 />
+                
+                <textarea 
+                  placeholder="Contenuto o note..."
+                  className="w-full bg-transparent border-none text-slate-500 dark:text-slate-400 focus:ring-0 p-0 resize-none h-24"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                />
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {currentTags.map(tag => (
+                      <span key={tag} className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-2">
+                        {tag}
+                        <button onClick={() => removeCurrentTag(tag)}><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text"
+                      placeholder="Aggiungi tag e premi Invio"
+                      className="w-full bg-slate-100 dark:bg-slate-900 border-none rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={addTag}
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={addItem}
+                  disabled={!title.trim()}
+                  className="w-full bg-indigo-600 disabled:opacity-50 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-indigo-500/30 active:scale-95 transition-all"
+                >
+                  Salva nel Vault
+                </button>
               </div>
-              <button 
-                onClick={handleSaveBudget}
-                disabled={!tempBudget || isNaN(parseFloat(tempBudget))}
-                className="w-full bg-indigo-600 disabled:opacity-50 text-white py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
-              >
-                Salva
-              </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* iOS/Android Prompt */}
+      {/* PWA Prompt */}
       {((isIOS || /Android/.test(navigator.userAgent)) && !isStandalone) && (
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161821] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
+          className="fixed bottom-6 left-6 right-6 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl flex items-center gap-4 z-50"
         >
           <div className="bg-indigo-600 p-3 rounded-2xl text-white">
-            <ArrowRight className="w-5 h-5 rotate-[-90deg]" />
+            <Bookmark className="w-5 h-5 fill-current" />
           </div>
-          <p className="text-[10px] font-bold uppercase tracking-tight leading-tight">
-            Installa Smart Budget: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
+          <p className="text-[10px] font-black uppercase tracking-tight leading-tight">
+            Installa il Vault: clicca su {isIOS ? '↑' : '⋮'} e seleziona <br/> <strong>"Aggiungi a Home"</strong>.
           </p>
         </motion.div>
       )}
 
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }
