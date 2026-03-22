@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink, Trash2 } from 'lucide-react';
+import { Search, Book, History, ArrowRight, Loader2, Sparkles, X, Globe, ExternalLink, Trash2, Youtube, MessageSquareText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Summary {
@@ -125,6 +125,37 @@ function App() {
               <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 animate-spin" />
             )}
           </form>
+
+          {/* Quick Links */}
+          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pt-2">
+            <a 
+              href={`https://www.google.com/search?q=${encodeURIComponent(query || 'Napoleone')}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-indigo-500/30 transition-all shadow-sm"
+            >
+              <Globe className="w-3 h-3 text-blue-500" />
+              Google
+            </a>
+            <a 
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query || 'Napoleone')}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-red-500/30 transition-all shadow-sm"
+            >
+              <Youtube className="w-3 h-3 text-red-500" />
+              YouTube
+            </a>
+            <a 
+              href="https://chatgpt.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-emerald-500/30 transition-all shadow-sm"
+            >
+              <MessageSquareText className="w-3 h-3 text-emerald-500" />
+              ChatGPT
+            </a>
+          </div>
         </div>
       </header>
 
